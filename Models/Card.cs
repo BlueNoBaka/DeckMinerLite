@@ -3,13 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using static System.Math;
 using DeckMiner.Data;
-// 假设这些辅助类已经存在于此命名空间或已引用
-// public class CenterAttribute { ... }
-// public class CenterSkill { ... }
-// public class Skill { ... }
 
 namespace DeckMiner.Models
 {
+    public enum AttributeType
+    {
+        None,
+        Smile,
+        Pure,
+        Cool,
+        Mental,
+        Cost
+    }
+    
     // ----------------------------------------------------
     // C# 缓存管理 (替代 Python 的 @cardobj_cache)
     // ----------------------------------------------------
@@ -19,7 +25,7 @@ namespace DeckMiner.Models
     /// <summary>
     /// 卡牌类，实现 ICloneable 以支持深拷贝 (替代 Python 的 __copy__)
     /// </summary>
-    public class Card : ICloneable
+    public partial class Card : ICloneable
     {
         private static readonly Dictionary<string, Card> CardCache = new Dictionary<string, Card>();
 
@@ -72,8 +78,11 @@ namespace DeckMiner.Models
             int evo = _initStatus();
             
             // 4. 初始化技能对象
-            string centerAttrId = cardDb.CenterAttributeSeriesId.ToString();
-            string centerSkillId = cardDb.CenterSkillSeriesId.ToString();
+            int centerAttrId = cardDb.CenterAttributeSeriesId;
+            CenterAttribute = new(centerAttrId);
+
+            int centerSkillId = cardDb.CenterSkillSeriesId;
+            CenterSkill = new(centerSkillId, lvList[1]);
 
             string skillIdPart = CardId.Length > 1 ? CardId.Substring(1) : CardId;
             string skillIdStr = $"3{skillIdPart}{evo}";
@@ -166,11 +175,6 @@ namespace DeckMiner.Models
         {
             return CenterSkill.Condition.Zip(CenterSkill.Effect, (c, e) => (c, e));
         }
-
-        public void CostChange(int value)
-        {
-            Cost = Max(0, Cost + value);
-        }
         
         // ----------------- 拷贝和输出 -----------------
 
@@ -196,6 +200,68 @@ namespace DeckMiner.Models
         public override string ToString()
         {
             return $"Name: {FullName}";
+        }
+    }
+
+    public partial class Card
+    {
+        // ----------------- SkillResolver 用修改属性方法 -----------------
+        public void CostChange(int value)
+        {
+            Cost = Max(0, Cost + value);
+        }
+
+        /// <summary>
+        /// 应用指定属性的比率变化。
+        /// </summary>
+        public void ApplyAttributeRateChange(AttributeType attributeType, double multiplier)
+        {
+            switch (attributeType)
+            {
+                case AttributeType.Smile:
+                    Smile = (int)Ceiling(Smile * multiplier);
+                    break;
+                case AttributeType.Pure:
+                    Pure = (int)Ceiling(Pure * multiplier);
+                    break;
+                case AttributeType.Cool:
+                    Cool = (int)Ceiling(Cool * multiplier);
+                    break;
+                case AttributeType.Mental:
+                    Mental = (int)Ceiling(Mental * multiplier);
+                    break;
+                default:
+                    // 抛出错误或记录日志
+                    throw new ArgumentException($"不支持的属性类型: {attributeType}");
+            }
+        }
+
+        /// <summary>
+        /// 应用指定属性的固定值变化。
+        /// </summary>
+        public void ApplyAttributeValueChange(AttributeType attributeType, int value)
+        {
+            switch (attributeType)
+            {
+                case AttributeType.Smile:
+                    Smile += value;
+                    break;
+                case AttributeType.Pure:
+                    Pure += value;
+                    break;
+                case AttributeType.Cool:
+                    Cool += value;
+                    break;
+                case AttributeType.Mental:
+                    Mental +=value;
+                    break;
+                case AttributeType.Cost:
+                    Cost = Max(0, Cost + value);
+                    break;
+                default:
+                    // 抛出错误或记录日志
+                    throw new ArgumentException($"不支持的属性类型: {attributeType}");
+            }
         }
     }
 }

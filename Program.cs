@@ -69,7 +69,7 @@ class Program
         var cardInfo = new List<List<dynamic>>
         {
             new List<dynamic> { "1041513", new List<int> { 120, 14, 14 } },
-            new List<dynamic> { "1021701", new List<int> { 140, 14, 14 } },
+            new List<dynamic> { "1021701", new List<int> { 140, 11, 11 } },
             new List<dynamic> { "1021523", new List<int> { 120, 14, 14 } },
             new List<dynamic> { "1022701", new List<int> { 140, 14, 14 } },
             new List<dynamic> { "1043516", new List<int> { 120, 14, 14 } },
@@ -105,21 +105,21 @@ class Program
         // ------------------------------------------------------------------
         Console.WriteLine("\n5. 卡组构建成功，输出卡牌信息:");
         int index = 1;
-        foreach (var card in myDeck.Cards)
-        {
-            Console.WriteLine($"--- 卡牌 {index++} ---");
-            Console.WriteLine($" ID: {card.CardId}");
-            Console.WriteLine($" 名称: {card.FullName}");
-            Console.WriteLine($" 等级: Lv.{card.CardLevel}");
-            Console.WriteLine($" Smile: {card.Smile} | Pure: {card.Pure} | Cool: {card.Cool}");
-            Console.WriteLine($" Mental: {card.Mental}");
-            Console.WriteLine($" 技能消耗: {card.Cost}");
-            foreach (var skill in card.SkillUnit.Effect)
-            {
-                Console.WriteLine($" 技能信息: {skill.ToString()}");    
-            }
-            Console.WriteLine(new string('-', 20));
-        }
+        // foreach (var card in myDeck.Cards)
+        // {
+        //     Console.WriteLine($"--- 卡牌 {index++} ---");
+        //     Console.WriteLine($" ID: {card.CardId}");
+        //     Console.WriteLine($" 名称: {card.FullName}");
+        //     Console.WriteLine($" 等级: Lv.{card.CardLevel}");
+        //     Console.WriteLine($" Smile: {card.Smile} | Pure: {card.Pure} | Cool: {card.Cool}");
+        //     Console.WriteLine($" Mental: {card.Mental}");
+        //     Console.WriteLine($" 技能消耗: {card.Cost}");
+        //     foreach (var skill in card.SkillUnit.Effect)
+        //     {
+        //         Console.WriteLine($" 技能信息: {skill.ToString()}");    
+        //     }
+        //     Console.WriteLine(new string('-', 20));
+        // }
         
         // ------------------------------------------------------------------
         // 步骤 6: 进一步测试（Appeal / Mental 计算）
@@ -132,5 +132,24 @@ class Program
         Console.WriteLine($"Appeal (歌曲属性 {musicType}): {appeal:N0}");
         Console.WriteLine($"Mental (总HP): {mental:N0}");
         Console.WriteLine("-------------------------");
+
+        const string TestMusicId = "405105";
+        const string TestTier = "02";
+
+        ChartData chartnow = ChartLoaderService.GetChart(TestMusicId, TestTier);
+
+        Simulator sim = new(chartnow, 2); 
+        sim.Run(myDeck, 1043802);
+        // ------------------------------------------------------------------
+        // 步骤 7: LiveStatus 测试
+        // ------------------------------------------------------------------
+        LiveStatus Player = new LiveStatus();
+        Player.SetDeck(myDeck);
+        Player.HpCalc();
+        SkillResolver.ApplySkillEffect(Player, 701025312);
+        SkillResolver.ApplySkillEffect(Player, 801025312);
+        Console.WriteLine($"{Player}");
+        SkillResolver.ApplySkillEffect(Player, 300001170);
+        Console.WriteLine($"{Player}");
     }
 }

@@ -58,10 +58,7 @@ namespace DeckMiner.Models
         {
             // Python: max(1, self.current_hp + ceil(self.max_hp * value / 100))
             int healAmount = (int)Ceiling(MaxHp * value / 100.0);
-            CurrentHp = Min(MaxHp, CurrentHp + healAmount);
-            // 注意：Python 的 max(1, ...) 逻辑在 CurrentHp > 0 时通常是多余的。
-            // 如果技能可以复活，需要保留。这里假设至少回复 1 点，但不能超过 MaxHp。
-            CurrentHp = Max(1, CurrentHp);
+            CurrentHp = Max(1, CurrentHp + healAmount);
         }
 
         public double GetRate() => MaxHp == 0 ? 0.0 : CurrentHp * 100.0 / MaxHp;

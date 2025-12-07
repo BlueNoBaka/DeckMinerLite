@@ -18,7 +18,7 @@ namespace DeckMiner.Data
     [JsonSerializable(typeof(MusicDbDictionaryType))]
     [JsonSerializable(typeof(ChartJsonData))]
     [JsonSerializable(typeof(ChartData))]         // 注册新的 ChartData 对象
-    [JsonSerializable(typeof(ChartEventData))]     // 注册新的事件对象
+    [JsonSerializable(typeof(LiveEventData))]     // 注册新的事件对象
 
     // 2. 告诉生成器如何格式化输出
     [JsonSourceGenerationOptions(WriteIndented = true)]
