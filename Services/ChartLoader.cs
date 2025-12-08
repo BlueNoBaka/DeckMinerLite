@@ -5,7 +5,7 @@ using System;
 
 namespace DeckMiner.Services
 {
-    public class ChartLoaderService
+    public class ChartLoader
     {
         /// <summary>
         /// 从 JSON 文件加载 ChartData。
@@ -58,7 +58,7 @@ namespace DeckMiner.Services
             string chartJsonPath = Path.Combine(baseDir, "database", "Chart", $"ChartEvents_{musicId}_{tier}.json");
 
             // 2. 实例化服务
-            var chartLoader = new ChartLoaderService();
+            var chartLoader = new ChartLoader();
 
             try
             {

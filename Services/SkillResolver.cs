@@ -342,8 +342,8 @@ namespace DeckMiner.Services
                         scoreRate += playerAttrs.NextScoreGainRate.First();
                         playerAttrs.NextScoreGainRate.RemoveAt(0);
                     }
-                    double scoreResult = valueData * scoreRate / 1000000.0;
-                    playerAttrs.ScoreAdd(scoreResult); // 假设 ScoreAdd 方法已实现
+                    double scoreResult = valueData / 1000000.0  * scoreRate;
+                    playerAttrs.ScoreAdd(scoreResult);
                     break;
                 case SkillEffectType.VoltagePointChange:
                     double voltageRate = playerAttrs.VoltageGainRate;
@@ -420,7 +420,7 @@ namespace DeckMiner.Services
             }
             foreach (var (flag, effect) in flags.Zip(effects))
             {
-                if (flag) SkillResolver.ApplySkillEffect(playerAttrs, effect, card);
+                if (flag) ApplySkillEffect(playerAttrs, effect, card);
             }
             Console.WriteLine($"{playerAttrs}");
         }

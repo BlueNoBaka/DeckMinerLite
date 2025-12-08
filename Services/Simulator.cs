@@ -1,14 +1,16 @@
 using System.Collections.Generic;
+using DeckMiner.Config;
 using DeckMiner.Data;
 using DeckMiner.Models;
 
 namespace DeckMiner.Services
 {
-    public class Simulator(ChartData chart, int musicType, int masterLv = 50)
+    public class Simulator(string musicId, string tier, int masterLv = 50)
     {
-        public ChartData Chart = chart;
-        public int MusicType = musicType;
+        public ChartData Chart = ChartLoader.GetChart(musicId, tier);
+        public MusicDbData Music = DataManager.Instance.GetMusicDatabase()[musicId];
         public int MasterLv = masterLv;
+        public CardConfig Config = ConfigLoader.Config;
 
         public void Run(Deck d, int centerCardId)
         {
@@ -16,9 +18,18 @@ namespace DeckMiner.Services
             LiveStatus Player = new(MasterLv);
             Player.SetDeck(d);
 
+            double afkMental = 0.0;
+
             foreach (Card c in d.Cards)
             {
                 int cid = int.Parse(c.CardId);
+                
+                if (Config.DeathNote.TryGetValue(cid, out double hpThreshold))
+                {
+                    if (afkMental > 0) afkMental = Math.Min(afkMental, hpThreshold);
+                    else afkMental = hpThreshold;
+                }
+                
                 if (cid == centerCardId) CenterCard = c;
             }
 
@@ -29,7 +40,7 @@ namespace DeckMiner.Services
                     SkillResolver.ApplyCenterAttribute(Player, effect, target);
                 }
             }
-            d.AppealCalc(MusicType);
+            d.AppealCalc(Music.MusicType);
             Player.HpCalc();
             Player.BaseScoreCalc(Chart.AllNoteSize);
 
@@ -70,19 +81,26 @@ namespace DeckMiner.Services
                     case "HoldMid":
                     case "Flick":
                     case "Trace":
-                        Player.ComboAdd("PERFECT+");
-                        if (Player.CDAvailable && cardNow != null && Player.Ap >= cardNow.Cost)
+                        if (Player.Mental.GetRate() > afkMental)
                         {
-                            Player.Ap -= cardNow.Cost;
-                            var (condition, effects) = d.TopSkill();
-                            SkillResolver.UseCardSkill(Player, effects, condition, cardNow);
-                            Player.CDAvailable = false;
-                            var nextCd = currentEvent.Time + Player.Cooldown;
-                            extraEvents.Enqueue(
-                                new LiveEventData(nextCd, "CDavailable"),
-                                nextCd
-                                );
-                            cardNow = d.TopCard();
+                            Player.ComboAdd("MISS", currentEvent.Name);
+                        }
+                        else
+                        {
+                            Player.ComboAdd("PERFECT+");
+                            if (Player.CDAvailable && cardNow != null && Player.Ap >= cardNow.Cost)
+                            {
+                                Player.Ap -= cardNow.Cost;
+                                var (condition, effects) = d.TopSkill();
+                                SkillResolver.UseCardSkill(Player, effects, condition, cardNow);
+                                Player.CDAvailable = false;
+                                var nextCd = currentEvent.Time + Player.Cooldown;
+                                extraEvents.Enqueue(
+                                    new LiveEventData(nextCd, "CDavailable"),
+                                    nextCd
+                                    );
+                                cardNow = d.TopCard();
+                            }
                         }
                         break;
 

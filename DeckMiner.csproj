@@ -10,8 +10,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="database\**">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Content Include="database\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="cardConfig.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

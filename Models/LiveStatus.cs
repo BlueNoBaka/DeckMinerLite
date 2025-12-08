@@ -64,29 +64,23 @@ namespace DeckMiner.Models
             _fullApPlus = 600000.0 / allNoteSize;
         }
 
-        public int ScoreAdd(double value, bool skill = true)
+        public void ScoreAdd(double value, bool skill = true)
         {
             double voltageBonus = Voltage.Bonus;
             value *= voltageBonus;
 
-            if (skill)
-            {
-                value *= _baseScore;
-            }
+            if (skill) value *= _baseScore;
 
             // Python: ceil(value)
-            int scoreAdded = (int)Ceiling(value);
-            Score += scoreAdded;
-            return scoreAdded;
+            Score += (long)Ceiling(value);
         }
 
-        public int ScoreNote(string judgement)
+        public void ScoreNote(string judgement)
         {
             if (_noteScore.TryGetValue(judgement, out double scoreValue))
             {
-                return ScoreAdd(scoreValue, skill: false);
+                ScoreAdd(scoreValue, skill: false);
             }
-            return 0;
         }
 
         public void ComboAdd(string judgement, string noteType = null)

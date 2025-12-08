@@ -5,6 +5,8 @@ using static System.Math;
 
 namespace DeckMiner.Models
 {
+    public record CardDeckInfo(string CardId, List<int> Levels);
+
     /// <summary>
     /// 卡组类，管理卡牌队列和总属性。
     /// 对应 Python 的 Deck
@@ -17,12 +19,12 @@ namespace DeckMiner.Models
         public List<string> CardLog { get; private set; } = new List<string>();
 
         // 构造函数
-        public Deck(List<List<dynamic>> cardInfo) // [Card ID, [LV, CSkillLV, SkillLV]]
+        public Deck(List<CardDeckInfo> cardInfo) // [Card ID, [LV, CSkillLV, SkillLV]]
         {
             foreach (var cardData in cardInfo)
             {
-                string cardId = cardData[0] as string;
-                List<int> lvList = cardData[1] as List<int>;
+                string cardId = cardData.CardId;
+                List<int> lvList = cardData.Levels;
                 
                 // 使用 Card 构造函数 (会自动处理缓存和拷贝)
                 // ⚠️ 注意：如果 Card 构造函数是静态工厂方法，则调用方式不同

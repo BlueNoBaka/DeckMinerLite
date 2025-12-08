@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json;
 using DeckMiner.Data;
 
@@ -12,11 +13,52 @@ namespace DeckMiner.Services
 
     public class DataManager
     {
+        private static readonly DataManager _instance = new();
         private SkillDbDictionaryType _skillDb;
         private CenterAttrDbDictionaryType _centerAttrDb;
         private CenterSkillDbDictionaryType _centerSkillDb;
         private CardDbDictionaryType _cardDb;
         private MusicDbDictionaryType _musicDb;
+
+        private DataManager()
+        {
+            try
+            {
+                Console.WriteLine("1. 正在加载 CardDbData...");
+                GetCardDatabase();
+
+                Console.WriteLine("2. 正在加载 Skill 数据库...");
+                GetSkillDatabase();
+                GetCenterAttributeDatabase();
+                GetCenterSkillDatabase();
+
+                Console.WriteLine("3. 正在加载 Music 数据库...");
+                GetMusicDatabase();
+            }
+            catch (FileNotFoundException ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"致命错误：{ex.Message}");
+                Console.ResetColor();
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"数据加载失败: {ex.Message}");
+                Console.ResetColor();
+                return;
+            }
+
+        }
+
+        public static DataManager Instance
+        {
+            get
+            {
+                return _instance;
+            }
+        }
 
         // ----------------------------------------------------
         // 🚀 通用加载方法 (通用化您的 Python db_load 函数)
