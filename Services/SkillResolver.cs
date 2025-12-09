@@ -422,7 +422,7 @@ namespace DeckMiner.Services
             {
                 if (flag) ApplySkillEffect(playerAttrs, effect, card);
             }
-            Console.WriteLine($"{playerAttrs}");
+            // Console.WriteLine($"{playerAttrs}");
         }
 
         private static readonly Dictionary<string, (CenterSkillConditionType Type, SkillComparisonOperator Operator, int Value)> CenterSkillConditionCache = new();

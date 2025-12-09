@@ -12,7 +12,7 @@ namespace DeckMiner.Services
         public int MasterLv = masterLv;
         public CardConfig Config = ConfigLoader.Config;
 
-        public void Run(Deck d, int centerCardId)
+        public long Run(Deck d, int centerCardId)
         {
             Card CenterCard = null;
             LiveStatus Player = new(MasterLv);
@@ -83,7 +83,14 @@ namespace DeckMiner.Services
                     case "Trace":
                         if (Player.Mental.GetRate() > afkMental)
                         {
-                            Player.ComboAdd("MISS", currentEvent.Name);
+                            try
+                            {
+                                Player.ComboAdd("MISS", currentEvent.Name);
+                            }
+                            catch (MentalDownException ex)
+                            {
+                                return Player.Score;
+                            }
                         }
                         else
                         {
@@ -152,7 +159,8 @@ namespace DeckMiner.Services
                 }
             }
 
-            Console.WriteLine($"{Player}");
+            // Console.WriteLine($"{Player}");
+            return Player.Score;
         }
     }
 

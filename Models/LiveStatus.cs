@@ -1,3 +1,6 @@
+using System.IO.Pipelines;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.Swift;
 using static System.Math;
 
 namespace DeckMiner.Models
@@ -30,6 +33,10 @@ namespace DeckMiner.Models
         private Dictionary<string, double> _noteScore = new Dictionary<string, double>();
         private double _halfApPlus;
         private double _fullApPlus;
+        private int _prevVo = -1;
+        private int _prevNoteScore = 0;
+        private double _prevApRate = 0.0;
+        private double _prevAp = 0.0;
 
         public void SetDeck(Deck deck)
         {
@@ -64,22 +71,35 @@ namespace DeckMiner.Models
             _fullApPlus = 600000.0 / allNoteSize;
         }
 
-        public void ScoreAdd(double value, bool skill = true)
+        public long ScoreAdd(double value, bool skill = true)
         {
             double voltageBonus = Voltage.Bonus;
             value *= voltageBonus;
 
             if (skill) value *= _baseScore;
 
-            // Python: ceil(value)
-            Score += (long)Ceiling(value);
+            var result = (long)Ceiling(value);
+            Score += result;
+            return result;
         }
 
         public void ScoreNote(string judgement)
         {
             if (_noteScore.TryGetValue(judgement, out double scoreValue))
             {
-                ScoreAdd(scoreValue, skill: false);
+                if (judgement == "PERFECT+")
+                {
+                    if (_prevVo == Voltage.Level)
+                    {
+                        Score += _prevNoteScore;
+                    }
+                    else
+                    {
+                        _prevVo = Voltage.Level;
+                        _prevNoteScore = (int)ScoreAdd(scoreValue, skill: false);
+                    }
+                }
+                else ScoreAdd(scoreValue, skill: false);
             }
         }
 
@@ -95,8 +115,13 @@ namespace DeckMiner.Models
                     {
                         ApRate = 1.0 + Combo / 10 / 10.0;
                     }
+                    if (_prevApRate != ApRate)
+                    {
+                        _prevApRate = ApRate;
+                        _prevAp = Ceiling(_fullApPlus * ApRate) / 10000.0;
+                    }
                     // Python: self.ap += ceil(self.full_ap_plus * self.ap_rate) / 10000
-                    Ap += Ceiling(_fullApPlus * ApRate) / 10000.0;
+                    Ap += _prevAp;
                     break;
 
                 case "GOOD":

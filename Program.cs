@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using DeckMiner.Config;
 using DeckMiner.Data;
@@ -21,15 +22,10 @@ class Program
         // ------------------------------------------------------------------
         DataManager dataManager = DataManager.Instance;
 
-        Dictionary<string, CardDbData> cardDb;
-        Dictionary<string, SkillDbData> skillDb;
-        Dictionary<string, CenterAttributeDbData> centerAttrDb;
-        Dictionary<string, CenterSkillDbData> centerSkillDb;
-
-        cardDb = dataManager.GetCardDatabase();
-        skillDb = dataManager.GetSkillDatabase();
-        centerAttrDb = dataManager.GetCenterAttributeDatabase();
-        centerSkillDb = dataManager.GetCenterSkillDatabase();
+        var cardDb = dataManager.GetCardDatabase();
+        var skillDb = dataManager.GetSkillDatabase();
+        var centerAttrDb = dataManager.GetCenterAttributeDatabase();
+        var centerSkillDb = dataManager.GetCenterSkillDatabase();
 
         // ------------------------------------------------------------------
         // 步骤 2: 初始化静态数据管理器
@@ -83,13 +79,59 @@ class Program
         // ------------------------------------------------------------------
         // 步骤 7: LiveStatus 测试
         // ------------------------------------------------------------------
-        LiveStatus Player = new LiveStatus();
-        Player.SetDeck(myDeck);
-        Player.HpCalc();
-        SkillResolver.ApplySkillEffect(Player, 701025312);
-        SkillResolver.ApplySkillEffect(Player, 801025312);
-        Console.WriteLine($"{Player}");
-        SkillResolver.ApplySkillEffect(Player, 300001170);
-        Console.WriteLine($"{Player}");
+        List<int> cardpool = [
+        1011501,  // 沙知
+        1021523, //1021901, 
+        1021512, 1021701,  // 梢: 银河 BR 舞会 LR
+        1022701, //1022901, 1022504,  // 缀: 银河 LR BR 明月
+        1023520, 1023701, 1023901,  // 慈: 银河 LR BR
+        1031519, 1031901,  // 帆: 舞会 BR(2024)
+        1032518, //1032901,  // 沙: 舞会 BR
+        1033514, 1033525, 1033901,  // 乃: 舞会 COCO夏 BR
+        1041513,  // 吟: 舞会
+        //1042516, 1042801, 1042802, // 1042515, // 1042512,  // 铃: 太阳 EA OE 暧昧mayday 舞会
+        1043515, 1043516, 1043801, 1043802,  // 芽: BLAST COCO夏 EA OE 舞会1043512
+        1051503, //1051501, 1051502,  // 泉: 天地黎明 DB RF
+        1052901, 1052503,  // 1052504  // 塞: BR 十六夜 天地黎明
+        ];
+        List<int> mustcards_all = [];
+        List<int> mustcards_any = [];
+        List<int> mustskills_all = [];
+        List<List<int>> mustcards = [mustcards_all, mustcards_any, mustskills_all];
+        int centerChar = 1043;
+        HashSet<int> availableCenter = new(){1043801, 1043802};
+        Stopwatch sw = new();
+        sw.Start();
+        DeckGenerator deckgen = new DeckGenerator(cardpool, mustcards, centerChar, availableCenter);
+        Console.WriteLine(deckgen.TotalDecks);
+        sw.Stop();
+        Console.WriteLine($"计算卡组数量用时: {sw.ElapsedTicks / Stopwatch.Frequency}");
+        
+
+        const string MusicId = "405105";
+        const string Tier = "02";
+
+        Simulator sim2 = new(MusicId, Tier); 
+
+        Stopwatch sw2 = new();
+        long bestScore = 0;
+        sw2.Start();
+        foreach (var (card_id_list, center_card) in deckgen)
+        {
+            var deckInfo = CardConfig.ConvertDeckToSimulatorFormat(card_id_list.ToList());
+            Deck deckToSimulate = new Deck(deckInfo);
+            var newScore = sim2.Run(deckToSimulate, (int)center_card);
+            if (newScore > bestScore)
+            {
+                bestScore = newScore;
+                Console.WriteLine($"NEW HI-SCORE! Score: {bestScore}");
+                Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
+                Console.WriteLine($"  Center: {center_card}");
+            }
+        }
+        sw2.Stop();
+        Console.WriteLine($"最高分: {bestScore}");
+        Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2 .ElapsedTicks / (decimal)Stopwatch.Frequency}");
+        Console.Read();
     }
 }

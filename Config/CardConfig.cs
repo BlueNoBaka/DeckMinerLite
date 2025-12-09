@@ -63,15 +63,17 @@ namespace DeckMiner.Config
                 config.DefaultCardLevels.Values.Max()
             );
 
-            // 3. 将默认等级存入缓存 (CARD_CACHE)
-            config.CardCache.Add(cardId, levels);
-
-            return new List<int>
+            levels = new List<int>
             {
                 defaultLevel,
                 config.DefaultCenterSkillLevel,
                 config.DefaultSkillLevel
             };
+
+            // 3. 将默认等级存入缓存 (CARD_CACHE)
+            config.CardCache.Add(cardId, levels);
+
+            return levels;
         }
 
         /// <summary>
