@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using TqdmSharp;
+
 using DeckMiner.Config;
 using DeckMiner.Data;
 using DeckMiner.Models;
@@ -117,7 +119,7 @@ class Program
         long bestScore = 0;
         object lockObject = new();
         sw2.Start();
-        Parallel.ForEach(deckgen, (deckTuple) =>
+        Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), (deckTuple) =>
         {
             var card_id_list = deckTuple.deck;
             var center_card = deckTuple.center;
@@ -134,7 +136,7 @@ class Program
                     if (newScore > bestScore)
                     {
                         bestScore = newScore;
-                        Console.WriteLine($"NEW HI-SCORE! Score: {bestScore}");
+                        Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
                         Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
                         Console.WriteLine($"  Center: {center_card}");
                     }
@@ -142,7 +144,7 @@ class Program
             }
         });
         sw2.Stop();
-        Console.WriteLine($"最高分: {bestScore}");
+        Console.WriteLine($"最高分: {bestScore:N0}");
         Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2 .ElapsedTicks / (decimal)Stopwatch.Frequency}");
         Console.Read();
     }
