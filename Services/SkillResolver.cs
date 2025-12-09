@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using static System.Math;
 using DeckMiner.Data;
 using DeckMiner.Models;
@@ -204,29 +205,44 @@ namespace DeckMiner.Services
         // -------------------------------------------------------------------
 
         // C# 中使用内部结构体/元组存储解析结果，并使用字典或 ConcurrentDictionary 模拟 lru_cache
-        private static readonly Dictionary<string, (SkillConditionType Type, SkillComparisonOperator Operator, int Value)> SkillConditionCache = new();
+        private static readonly ConcurrentDictionary<string, (SkillConditionType Type, SkillComparisonOperator Operator, int Value)> SkillConditionCache = new();
 
         /// <summary>
         /// 解析技能条件ID。对应 Python 的 parse_condition_id。
         /// </summary>
         private static (SkillConditionType Type, SkillComparisonOperator Operator, int Value) ParseSkillConditionId(string conditionId)
         {
-            if (SkillConditionCache.ContainsKey(conditionId)) return SkillConditionCache[conditionId];
+            // 使用 GetOrAdd 尝试获取或添加结果。
+            // 如果 conditionId 在缓存中，立即返回缓存值 (线程安全)。
+            // 如果不在，则执行后面的 Lambda 表达式 (工厂函数)，然后原子地添加结果。
+            
+            // (SkillConditionType Type, SkillComparisonOperator Operator, int Value) 是结果的元组类型
+            return SkillConditionCache.GetOrAdd(
+                conditionId, 
+                // 工厂函数: 只有在缓存未命中时才执行
+                (key) => 
+                {
+                    // 原始的解析逻辑
+                    if (key.Length != 7 ||
+                        !int.TryParse(key.Substring(0, 1), out int typeValue) ||
+                        !int.TryParse(key.Substring(1, 1), out int opValue) ||
+                        !int.TryParse(key.Substring(2), out int valueData) ||
+                        !Enum.IsDefined(typeof(SkillConditionType), typeValue) ||
+                        !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
+                    {
+                        // 如果解析失败，缓存一个错误/默认结果，避免再次尝试解析
+                        // (根据你的需求，你可能需要缓存 null 或抛出异常)
+                        // 这里选择缓存一个默认值 (0, 0, 0)
+                        // logger.Error("错误: 无法解析条件ID。");
+                        return (0, 0, 0); 
+                    }
 
-            if (conditionId.Length != 7 ||
-                !int.TryParse(conditionId.Substring(0, 1), out int typeValue) ||
-                !int.TryParse(conditionId.Substring(1, 1), out int opValue) ||
-                !int.TryParse(conditionId.Substring(2), out int valueData) ||
-                !Enum.IsDefined(typeof(SkillConditionType), typeValue) ||
-                !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
-            {
-                // logger.Error("错误: 无法解析条件ID。");
-                return (0, 0, 0); // 返回默认值或抛出异常
-            }
-
-            var result = ((SkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
-            SkillConditionCache.Add(conditionId, result);
-            return result;
+                    var result = ((SkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
+                    
+                    // GetOrAdd 会自动将 result 添加到 SkillConditionCache 中
+                    return result;
+                }
+            );
         }
 
         /// <summary>
@@ -283,40 +299,49 @@ namespace DeckMiner.Services
         // -------------------------------------------------------------------
 
         // 与条件解析类似，使用缓存结构
-        private static readonly Dictionary<int, (SkillEffectType Type, int Usage, int Value, int Direction)> SkillEffectCache = new();
+        private static readonly ConcurrentDictionary<int, (SkillEffectType Type, int Usage, int Value, int Direction)> SkillEffectCache = new();
 
         /// <summary>
         /// 解析技能效果ID。对应 Python 的 parse_effect_id。
         /// </summary>
         private static (SkillEffectType Type, int UsageCount, int ValueData, int ChangeDirection) ParseSkillEffectId(int effectId)
         {
-            if (SkillEffectCache.ContainsKey(effectId)) return SkillEffectCache[effectId];
+            // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
+            return SkillEffectCache.GetOrAdd(
+                effectId, 
+                // factory 函数: 只有在缓存未命中时才执行
+                (key) => 
+                {
+                    // --- 原始的解析逻辑 ---
+                    string idStr = key.ToString();
+                    // 长度检查
+                    if (idStr.Length != 9) return (0, 0, 0, 0); 
 
-            string idStr = effectId.ToString();
-            if (idStr.Length != 9) return (0, 0, 0, 0); // 长度不符
+                    // 基本字段解析
+                    if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
+                        !int.TryParse(idStr.Substring(1, 1), out int directionValue) ||
+                        !Enum.IsDefined(typeof(SkillEffectType), typeValue)) return (0, 0, 0, 0);
 
-            if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
-                !int.TryParse(idStr.Substring(1, 1), out int directionValue) ||
-                !Enum.IsDefined(typeof(SkillEffectType), typeValue)) return (0, 0, 0, 0);
+                    SkillEffectType effectType = (SkillEffectType)typeValue;
+                    int usageCount;
+                    int valueData;
 
-            SkillEffectType effectType = (SkillEffectType)typeValue;
-            int usageCount;
-            int valueData;
+                    // 根据类型进行特殊处理
+                    if (effectType == SkillEffectType.NextAPGainRateChange || effectType == SkillEffectType.NextVoltageGainRateChange)
+                    {
+                        if (!int.TryParse(idStr.Substring(2, 1), out usageCount) ||
+                            !int.TryParse(idStr.Substring(3), out valueData)) return (0, 0, 0, 0);
+                    }
+                    else
+                    {
+                        usageCount = 1;
+                        if (!int.TryParse(idStr.Substring(2), out valueData)) return (0, 0, 0, 0);
+                    }
 
-            if (effectType == SkillEffectType.NextAPGainRateChange || effectType == SkillEffectType.NextVoltageGainRateChange)
-            {
-                if (!int.TryParse(idStr.Substring(2, 1), out usageCount) ||
-                    !int.TryParse(idStr.Substring(3), out valueData)) return (0, 0, 0, 0);
-            }
-            else
-            {
-                usageCount = 1;
-                if (!int.TryParse(idStr.Substring(2), out valueData)) return (0, 0, 0, 0);
-            }
-
-            var result = (effectType, usageCount, valueData, directionValue);
-            SkillEffectCache.Add(effectId, result);
-            return result;
+                    // --- 返回结果 (GetOrAdd 会自动将结果添加到缓存) ---
+                    return (effectType, usageCount, valueData, directionValue);
+                }
+            );
         }
 
 
@@ -425,29 +450,38 @@ namespace DeckMiner.Services
             // Console.WriteLine($"{playerAttrs}");
         }
 
-        private static readonly Dictionary<string, (CenterSkillConditionType Type, SkillComparisonOperator Operator, int Value)> CenterSkillConditionCache = new();
+        private static readonly ConcurrentDictionary<string, (CenterSkillConditionType Type, SkillComparisonOperator Operator, int Value)> CenterSkillConditionCache = new();
         
         /// <summary>
         /// 解析C位技能条件ID。
         /// </summary>
         private static (CenterSkillConditionType Type, SkillComparisonOperator Operator, int Value) ParseCenterSkillConditionId(string conditionId)
         {
-            if (CenterSkillConditionCache.ContainsKey(conditionId)) return CenterSkillConditionCache[conditionId];
+            // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
+            return CenterSkillConditionCache.GetOrAdd(
+                conditionId, 
+                // 工厂函数 (Func<string, TValue>): 只有在缓存未命中时才执行
+                (key) => 
+                {
+                    // --- 原始的解析逻辑 ---
+                    if (key.Length != 7 ||
+                        !int.TryParse(key.Substring(0, 1), out int typeValue) ||
+                        !int.TryParse(key.Substring(1, 1), out int opValue) ||
+                        !int.TryParse(key.Substring(2), out int valueData) ||
+                        !Enum.IsDefined(typeof(SkillConditionType), typeValue) || // ⚠️ 注意：这里可能应该检查 CenterSkillConditionType
+                        !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
+                    {
+                        // 解析失败或格式不符，返回默认值 (该默认值也会被缓存)
+                        return (0, 0, 0); 
+                    }
 
-            if (conditionId.Length != 7 ||
-                !int.TryParse(conditionId.Substring(0, 1), out int typeValue) ||
-                !int.TryParse(conditionId.Substring(1, 1), out int opValue) ||
-                !int.TryParse(conditionId.Substring(2), out int valueData) ||
-                !Enum.IsDefined(typeof(SkillConditionType), typeValue) ||
-                !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
-            {
-                // logger.Error("错误: 无法解析条件ID。");
-                return (0, 0, 0); // 返回默认值或抛出异常
-            }
-
-            var result = ((CenterSkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
-            CenterSkillConditionCache.Add(conditionId, result);
-            return result;
+                    // 构造解析结果
+                    var result = ((CenterSkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
+                    
+                    // GetOrAdd 会自动将 result 添加到缓存中，无需手动调用 Add
+                    return result;
+                }
+            );
         }
         
         /// <summary>
@@ -567,29 +601,42 @@ namespace DeckMiner.Services
         }
 
 
-        private static readonly Dictionary<int, (CenterSkillEffectType Type, int Value, int Direction)> CenterSkillEffectCache = new();
+        private static readonly ConcurrentDictionary<int, (CenterSkillEffectType Type, int Value, int Direction)> CenterSkillEffectCache = new();
 
         /// <summary>
         /// 解析技能效果ID。对应 Python 的 parse_effect_id。
         /// </summary>
         private static (CenterSkillEffectType Type, int ValueData, int ChangeDirection) ParseCenterSkillEffectId(int effectId)
         {
-            if (CenterSkillEffectCache.ContainsKey(effectId)) return CenterSkillEffectCache[effectId];
+            // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
+            return CenterSkillEffectCache.GetOrAdd(
+                effectId, 
+                // 工厂函数 (Func<int, TValue>): 只有在缓存未命中时才执行
+                (key) => 
+                {
+                    // --- 原始的解析逻辑 ---
+                    string idStr = key.ToString();
+                    
+                    // 长度检查
+                    if (idStr.Length != 9) return (0, 0, 0); 
 
-            string idStr = effectId.ToString();
-            if (idStr.Length != 9) return (0, 0, 0); // 长度不符
+                    // 基本字段解析
+                    if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
+                        !int.TryParse(idStr.Substring(1, 1), out int directionValue) ||
+                        !Enum.IsDefined(typeof(CenterSkillEffectType), typeValue)) return (0, 0, 0);
 
-            if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
-                !int.TryParse(idStr.Substring(1, 1), out int directionValue) ||
-                !Enum.IsDefined(typeof(CenterSkillEffectType), typeValue)) return (0, 0, 0);
+                    CenterSkillEffectType effectType = (CenterSkillEffectType)typeValue;
 
-            CenterSkillEffectType effectType = (CenterSkillEffectType)typeValue;
+                    // 解析值数据
+                    if (!int.TryParse(idStr.Substring(2), out int valueData)) return (0, 0, 0);
 
-            if (!int.TryParse(idStr.Substring(2), out int valueData)) return (0, 0, 0);
-
-            var result = (effectType, valueData, directionValue);
-            CenterSkillEffectCache.Add(effectId, result);
-            return result;
+                    // 构造解析结果
+                    var result = (effectType, valueData, directionValue);
+                    
+                    // GetOrAdd 会自动将 result 添加到缓存中，无需手动调用 Add
+                    return result;
+                }
+            );
         }
 
         public static void ApplyCenterSkillEffect(LiveStatus playerAttrs, int effectId)

@@ -115,20 +115,32 @@ class Program
 
         Stopwatch sw2 = new();
         long bestScore = 0;
+        object lockObject = new();
         sw2.Start();
-        foreach (var (card_id_list, center_card) in deckgen)
+        Parallel.ForEach(deckgen, (deckTuple) =>
         {
+            var card_id_list = deckTuple.deck;
+            var center_card = deckTuple.center;
+
             var deckInfo = CardConfig.ConvertDeckToSimulatorFormat(card_id_list.ToList());
             Deck deckToSimulate = new Deck(deckInfo);
+
             var newScore = sim2.Run(deckToSimulate, (int)center_card);
+
             if (newScore > bestScore)
             {
-                bestScore = newScore;
-                Console.WriteLine($"NEW HI-SCORE! Score: {bestScore}");
-                Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
-                Console.WriteLine($"  Center: {center_card}");
+                lock (lockObject)
+                {
+                    if (newScore > bestScore)
+                    {
+                        bestScore = newScore;
+                        Console.WriteLine($"NEW HI-SCORE! Score: {bestScore}");
+                        Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
+                        Console.WriteLine($"  Center: {center_card}");
+                    }
+                }
             }
-        }
+        });
         sw2.Stop();
         Console.WriteLine($"最高分: {bestScore}");
         Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2 .ElapsedTicks / (decimal)Stopwatch.Frequency}");

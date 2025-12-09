@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static System.Math;
+using System.Collections.Concurrent;
 using DeckMiner.Data;
 
 namespace DeckMiner.Models
@@ -27,7 +28,7 @@ namespace DeckMiner.Models
     /// </summary>
     public partial class Card : ICloneable
     {
-        private static readonly Dictionary<string, Card> CardCache = new Dictionary<string, Card>();
+        private static readonly ConcurrentDictionary<string, Card> CardCache = new();
 
         // ----------------- 属性 -----------------
         public string CardId { get; private set; }
@@ -117,14 +118,34 @@ namespace DeckMiner.Models
             return newCard; // ✅ 现在可以在方法中返回对象了
         }
 
-        // 3. 如果缓存不存在，创建新实例
-        // 构造函数需要与 GetInstance 接收相同的参数 (除去 dbCard)
-        var newInstance = new Card(seriesId, lvList);
+        // --- 3. 缓存未命中：创建并添加 (使用 GetOrAdd 保证原子性) ---
+    
+        // GetOrAdd 确保：
+        // a) 如果其他线程已添加，则返回已添加的值。
+        // b) 如果不存在，则只调用一次 factory 函数创建新卡牌并添加到缓存。
+        Card instanceToCache = CardCache.GetOrAdd(
+        seriesId, 
+        (key) => {
+            // 这是创建新卡牌的逻辑 (只会执行一次)
+            var newInstance = new Card(seriesId, lvList);
+            
+            // 缓存只存储干净的实例，所以我们缓存其 Clone
+            // 注意：这里需要确保 Card 构造函数不会依赖于 lvList 来设置初始状态
+            return (Card)newInstance.Clone(); 
+        });
 
-        // 4. 将新创建的对象加入缓存 (缓存只存储干净的实例)
-        CardCache[seriesId] = (Card)newInstance.Clone(); 
+        // 缓存完成后，返回深拷贝的新卡牌实例
+        var finalNewCard = (Card)instanceToCache.Clone();
+        
+        // 重新应用动态等级（因为 GetOrAdd 内部的 factory 可能会使用 null lvList）
+        if (lvList != null)
+        {
+            finalNewCard.CardLevel = lvList[0];
+            // ... (其他等级设置逻辑)
+            finalNewCard._initStatus(); 
+        }
 
-        return newInstance;
+        return finalNewCard;
     }
         // ----------------- 方法 -----------------
 

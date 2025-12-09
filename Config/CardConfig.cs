@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq; // 用于 Linq 扩展方法
+using System.Collections.Concurrent;
 using DeckMiner.Models;
 
 namespace DeckMiner.Config
@@ -25,7 +26,7 @@ namespace DeckMiner.Config
 
         // 自定义卡牌等级配置 (CardId: CardOverride 对象)
         // 对应 CARD_CACHE
-        public Dictionary<int, List<int>> CardCache { get; set; } = new();
+        public ConcurrentDictionary<int, List<int>> CardCache { get; set; } = new();
 
         // 背水血线配置 (CardId: HPThreshold)
         // 对应 DEATH_NOTE
@@ -43,36 +44,48 @@ namespace DeckMiner.Config
         {
             var config = ConfigLoader.Config;
 
-            // 1. 尝试从 CardCache 中获取自定义/已缓存的等级
-            if (config.CardCache.TryGetValue(cardId, out List<int> levels))
+            // ----------------------------------------------------
+            // 1. 定义创建默认等级列表的逻辑 (Factory 函数)
+            // ----------------------------------------------------
+            // 将计算默认等级的逻辑封装成一个本地函数或 Lambda 表达式，作为 GetOrAdd 的参数
+            Func<int, List<int>> createDefaultLevels = (id) =>
             {
-                if (levels.Count >= 3)
+                // 提取稀有度数字
+                int rarityDigit = id / 100 % 10;
+                
+                int defaultLevel = config.DefaultCardLevels.GetValueOrDefault(
+                    rarityDigit, 
+                    config.DefaultCardLevels.Values.Max()
+                );
+
+                // 构建并返回默认等级列表
+                return new List<int>
                 {
-                    // **直接返回 List<int>，简化了数据处理**
-                    return levels; 
-                }
-            }
-
-            // 2. 如果缓存中没有，则计算默认等级
-            
-            // 提取稀有度数字：Python 代码中是 int(str(card_id)[4])
-            // 假设卡牌ID总是7位，且稀有度信息在第5位 (索引 4)
-            int rarityDigit = cardId / 100 % 10;
-            int defaultLevel = config.DefaultCardLevels.GetValueOrDefault(
-                rarityDigit, 
-                config.DefaultCardLevels.Values.Max()
-            );
-
-            levels = new List<int>
-            {
-                defaultLevel,
-                config.DefaultCenterSkillLevel,
-                config.DefaultSkillLevel
+                    defaultLevel,
+                    config.DefaultCenterSkillLevel,
+                    config.DefaultSkillLevel
+                };
             };
 
-            // 3. 将默认等级存入缓存 (CARD_CACHE)
-            config.CardCache.Add(cardId, levels);
+            // ----------------------------------------------------
+            // 2. 使用 GetOrAdd 获取或计算等级
+            // ----------------------------------------------------
+            // GetOrAdd 尝试获取键的值。
+            // 如果键不存在，它会调用上面的 createDefaultLevels 函数，
+            // 将结果添加到字典中，然后返回该结果。整个过程是线程安全的。
+            List<int> levels = config.CardCache.GetOrAdd(cardId, createDefaultLevels);
 
+            // ----------------------------------------------------
+            // 3. 检查并返回结果
+            // ----------------------------------------------------
+            // 检查数组长度依然是必要的，以防配置数据结构被破坏
+            if (levels.Count < 3)
+            {
+                // 如果缓存中的数据不完整，可以强制重新计算并更新，但这需要额外的 GetOrAdd 逻辑或使用 Update
+                // 简单的处理是返回默认值
+                return createDefaultLevels(cardId);
+            }
+            
             return levels;
         }
 
