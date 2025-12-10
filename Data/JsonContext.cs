@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using DeckMiner.Config;
+using DeckMiner.Services;
 
 namespace DeckMiner.Data
 {
@@ -10,6 +11,7 @@ namespace DeckMiner.Data
     using CenterSkillDbDictionaryType = Dictionary<string, CenterSkillDbData>;
     using CardDbDictionaryType = Dictionary<string, CardDbData>;
     using MusicDbDictionaryType = Dictionary<string, MusicDbData>;
+    using SimulationResultListType = List<SimulationResult>;
 
     // 1. 使用 [JsonSerializable] 属性标记需要生成代码的类型
     [JsonSerializable(typeof(SkillDbDictionaryType))]
@@ -19,6 +21,8 @@ namespace DeckMiner.Data
     [JsonSerializable(typeof(MusicDbDictionaryType))]
     [JsonSerializable(typeof(ChartData))]
     [JsonSerializable(typeof(CardConfig))]
+    [JsonSerializable(typeof(SimulationResult))]
+    [JsonSerializable(typeof(SimulationResultListType))]
 
     // 2. 告诉生成器如何格式化输出
     [JsonSourceGenerationOptions(WriteIndented = true)]

@@ -15313,6 +15313,50 @@
       30335304
     ]
   },
+  "1033531": {
+    "CardSeriesId": 1033531,
+    "Name": "Hip, hip, hooray!",
+    "Description": "大沢 瑠璃乃",
+    "CharactersId": 1033,
+    "Rarity": 5,
+    "CenterSkillSeriesId": 10335310,
+    "CenterAttributeSeriesId": 20335310,
+    "MaxSmile": [
+      3125,
+      4375,
+      6250,
+      6875,
+      7500
+    ],
+    "MaxPure": [
+      2525,
+      3535,
+      5050,
+      5555,
+      6060
+    ],
+    "MaxCool": [
+      1550,
+      2170,
+      3100,
+      3410,
+      3720
+    ],
+    "MaxMental": [
+      240,
+      336,
+      480,
+      480,
+      480
+    ],
+    "RhythmGameSkillSeriesId": [
+      30335310,
+      30335310,
+      30335312,
+      30335313,
+      30335314
+    ]
+  },
   "1033801": {
     "CardSeriesId": 1033801,
     "Name": "Prism Echo",
@@ -15858,6 +15902,50 @@
       30414042,
       30414043,
       30414044
+    ]
+  },
+  "1041405": {
+    "CardSeriesId": 1041405,
+    "Name": "My Lucky Clover",
+    "Description": "百生 吟子",
+    "CharactersId": 1041,
+    "Rarity": 4,
+    "CenterSkillSeriesId": 10414050,
+    "CenterAttributeSeriesId": 20414050,
+    "MaxSmile": [
+      2650,
+      3710,
+      5300,
+      5830,
+      6360
+    ],
+    "MaxPure": [
+      2900,
+      4060,
+      5800,
+      6380,
+      6960
+    ],
+    "MaxCool": [
+      1625,
+      2275,
+      3250,
+      3575,
+      3900
+    ],
+    "MaxMental": [
+      243,
+      340,
+      485,
+      485,
+      485
+    ],
+    "RhythmGameSkillSeriesId": [
+      30414050,
+      30414050,
+      30414052,
+      30414053,
+      30414054
     ]
   },
   "1041501": {
@@ -19477,6 +19565,50 @@
       30435194
     ]
   },
+  "1043521": {
+    "CardSeriesId": 1043521,
+    "Name": "Hip, hip, hooray!",
+    "Description": "安養寺 姫芽",
+    "CharactersId": 1043,
+    "Rarity": 5,
+    "CenterSkillSeriesId": 10435210,
+    "CenterAttributeSeriesId": 20435210,
+    "MaxSmile": [
+      3100,
+      4340,
+      6200,
+      6820,
+      7440
+    ],
+    "MaxPure": [
+      2600,
+      3640,
+      5200,
+      5720,
+      6240
+    ],
+    "MaxCool": [
+      1500,
+      2100,
+      3000,
+      3300,
+      3600
+    ],
+    "MaxMental": [
+      240,
+      336,
+      480,
+      480,
+      480
+    ],
+    "RhythmGameSkillSeriesId": [
+      30435210,
+      30435210,
+      30435212,
+      30435213,
+      30435214
+    ]
+  },
   "1043801": {
     "CardSeriesId": 1043801,
     "Name": "Ether Aria",
@@ -20809,6 +20941,50 @@
       30525072,
       30525073,
       30525074
+    ]
+  },
+  "1052508": {
+    "CardSeriesId": 1052508,
+    "Name": "105/刹那&セラニャン",
+    "Description": "セラス 柳田 リリエンフェルト",
+    "CharactersId": 1052,
+    "Rarity": 5,
+    "CenterSkillSeriesId": 10525080,
+    "CenterAttributeSeriesId": 20525080,
+    "MaxSmile": [
+      2075,
+      2905,
+      4150,
+      4565,
+      4980
+    ],
+    "MaxPure": [
+      2875,
+      4025,
+      5750,
+      6325,
+      6900
+    ],
+    "MaxCool": [
+      2150,
+      3010,
+      4300,
+      4730,
+      5160
+    ],
+    "MaxMental": [
+      250,
+      350,
+      500,
+      500,
+      500
+    ],
+    "RhythmGameSkillSeriesId": [
+      30525080,
+      30525080,
+      30525082,
+      30525083,
+      30525084
     ]
   },
   "1052801": {

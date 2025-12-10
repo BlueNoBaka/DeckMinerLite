@@ -8,6 +8,7 @@
     <Nullable>disable</Nullable>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Speed</OptimizationPreference>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="database\**" CopyToOutputDirectory="PreserveNewest" />

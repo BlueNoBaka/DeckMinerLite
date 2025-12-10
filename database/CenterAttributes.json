@@ -5320,6 +5320,21 @@
       30008000
     ]
   },
+  "20335311": {
+    "CenterAttributeSeriesId": 20335310,
+    "CenterAttributeName": "アピールアップ（みらくらぱーく！）",
+    "Description": "みらくらぱーく！に所属するメンバーのアピール値が200％上昇",
+    "TargetIds": [
+      "20103",
+      "20103",
+      "20103"
+    ],
+    "CenterAttributeEffectId": [
+      10020000,
+      20020000,
+      30020000
+    ]
+  },
   "20338011": {
     "CenterAttributeSeriesId": 20338010,
     "CenterAttributeName": "アピールアップ（みらくらぱーく！）&APレデュース&CTレデュース",
@@ -5514,6 +5529,21 @@
   },
   "20414041": {
     "CenterAttributeSeriesId": 20414040,
+    "CenterAttributeName": "アピールアップ",
+    "Description": "全メンバーのアピール値が54％上昇",
+    "TargetIds": [
+      "50000",
+      "50000",
+      "50000"
+    ],
+    "CenterAttributeEffectId": [
+      10005400,
+      20005400,
+      30005400
+    ]
+  },
+  "20414051": {
+    "CenterAttributeSeriesId": 20414050,
     "CenterAttributeName": "アピールアップ",
     "Description": "全メンバーのアピール値が54％上昇",
     "TargetIds": [
@@ -6794,6 +6824,21 @@
       30007200
     ]
   },
+  "20435211": {
+    "CenterAttributeSeriesId": 20435210,
+    "CenterAttributeName": "アピールアップ（みらくらぱーく！）",
+    "Description": "みらくらぱーく！に所属するメンバーのアピール値が200％上昇",
+    "TargetIds": [
+      "20103",
+      "20103",
+      "20103"
+    ],
+    "CenterAttributeEffectId": [
+      10020000,
+      20020000,
+      30020000
+    ]
+  },
   "20438011": {
     "CenterAttributeSeriesId": 20438010,
     "CenterAttributeName": "アピールアップ（みらくらぱーく！）&APレデュース&CTレデュース",
@@ -7249,6 +7294,21 @@
       "20105",
       "20105",
       "20105"
+    ],
+    "CenterAttributeEffectId": [
+      10020000,
+      20020000,
+      30020000
+    ]
+  },
+  "20525081": {
+    "CenterAttributeSeriesId": 20525080,
+    "CenterAttributeName": "アピールアップ",
+    "Description": "桂城泉／セラスのアピール値が200％上昇",
+    "TargetIds": [
+      "30105",
+      "30105",
+      "30105"
     ],
     "CenterAttributeEffectId": [
       10020000,
