@@ -30,14 +30,20 @@ namespace DeckMiner.Services
             var dataManager = DataManager.Instance;
             var cardDb = dataManager.GetCardDatabase();
             var skillDb = dataManager.GetSkillDatabase();
-    
+
             foreach (var kv in cardDb)
             {
                 var data = kv.Value;
+                if (data.RhythmGameSkillSeriesId == null || data.RhythmGameSkillSeriesId.Count == 0)
+                    continue;
+
                 int skillSeries = data.RhythmGameSkillSeriesId.Last();
                 string skillId = $"{skillSeries}14";
 
-                List<int> effects = skillDb[skillId].RhythmGameSkillEffectId;
+                if (!skillDb.TryGetValue(skillId, out var skillData) || skillData.RhythmGameSkillEffectId == null)
+                    continue;
+
+                List<int> effects = skillData.RhythmGameSkillEffectId;
 
                 HashSet<object> tag = new();
 
@@ -56,15 +62,22 @@ namespace DeckMiner.Services
     // ================== 计数 tag ==================
     public static class SkillTagCounter
     {
+        // 直接累加到字典，避免额外分配与 GroupBy
         public static Dictionary<object, int> CountSkillTags(List<int> cardIds)
         {
-            List<object> allTags = new();
+            var dict = new Dictionary<object, int>();
 
             foreach (var cid in cardIds)
             {
                 if (DB.DB_TAG.TryGetValue(cid, out var tagset))
                 {
-                    allTags.AddRange(tagset);
+                    foreach (var t in tagset)
+                    {
+                        if (dict.TryGetValue(t, out int v))
+                            dict[t] = v + 1;
+                        else
+                            dict[t] = 1;
+                    }
                 }
                 else
                 {
@@ -72,37 +85,47 @@ namespace DeckMiner.Services
                 }
             }
 
-            return allTags
-                .GroupBy(t => t)
-                .ToDictionary(g => g.Key, g => g.Count());
+            return dict;
         }
     }
 
     // ================== 生成角色分布 ==================
     public static class RoleDistribution
     {
+        // 返回去重后的角色分布（sorted arrays）
         public static List<int[]> GenerateRoleDistributions(List<int> allCharacters)
         {
-            HashSet<string> seen = new();
-            List<int[]> results = new();
+            var seen = new HashSet<string>();
+            var results = new List<int[]>();
 
+            int n = allCharacters.Count;
+            // doubleCount = 0..3
             for (int doubleCount = 0; doubleCount <= 3; doubleCount++)
             {
-                foreach (var doubles in Combinations(allCharacters, doubleCount))
+                // 选择 doubleCount 个角色作为双卡角色
+                foreach (var doubles in CombinationsIndexBased(allCharacters, doubleCount))
                 {
                     int remaining = 6 - doubleCount * 2;
-                    var remainChars = allCharacters.Except(doubles).ToList();
+                    var remainChars = new List<int>(allCharacters.Count - doubles.Count);
+                    // build remainChars quickly
+                    var doublesSet = new HashSet<int>(doubles);
+                    foreach (var ch in allCharacters)
+                        if (!doublesSet.Contains(ch))
+                            remainChars.Add(ch);
 
-                    foreach (var singles in Combinations(remainChars, remaining))
+                    // choose singles
+                    foreach (var singles in CombinationsIndexBased(remainChars, remaining))
                     {
-                        List<int> dist = new();
-                        dist.AddRange(doubles);
-                        dist.AddRange(doubles); // 双卡
-                        dist.AddRange(singles);
+                        // build distribution: doubles twice + singles
+                        int totalLen = doubles.Count * 2 + singles.Count;
+                        var dist = new int[totalLen];
+                        int idx = 0;
+                        foreach (var d in doubles) dist[idx++] = d;
+                        foreach (var d in doubles) dist[idx++] = d;
+                        foreach (var s in singles) dist[idx++] = s;
 
                         var sorted = dist.OrderBy(x => x).ToArray();
                         string key = string.Join(",", sorted);
-
                         if (seen.Add(key))
                         {
                             results.Add(sorted);
@@ -114,8 +137,8 @@ namespace DeckMiner.Services
             return results;
         }
 
-        // 通用组合方法
-        static IEnumerable<List<T>> Combinations<T>(List<T> list, int k)
+        // index-based combination generator returns List<int> per combination
+        static IEnumerable<List<T>> CombinationsIndexBased<T>(List<T> list, int k)
         {
             if (k == 0)
             {
@@ -124,42 +147,28 @@ namespace DeckMiner.Services
             }
             if (k > list.Count) yield break;
 
-            for (int i = 0; i < list.Count; i++)
+            var indices = new int[k];
+            for (int i = 0; i < k; i++)
+                indices[i] = i;
+
+            while (true)
             {
-                foreach (var tail in Combinations(list.Skip(i + 1).ToList(), k - 1))
-                {
-                    var result = new List<T> { list[i] };
-                    result.AddRange(tail);
-                    yield return result;
-                }
+                var res = new List<T>(k);
+                for (int i = 0; i < k; i++)
+                    res.Add(list[indices[i]]);
+                yield return res;
+
+                // move to next indices
+                int pos = k - 1;
+                while (pos >= 0 && indices[pos] == list.Count - k + pos)
+                    pos--;
+                if (pos < 0) break;
+                indices[pos]++;
+                for (int j = pos + 1; j < k; j++)
+                    indices[j] = indices[j - 1] + 1;
             }
         }
     }
-
-    // ============= 加载模拟过的卡组（避免重复） =============
-    // public static class SimulatedDeckLoader
-    // {
-    //     public static HashSet<string> Load(string path)
-    //     {
-    //         HashSet<string> decks = new();
-    //         if (!File.Exists(path)) return decks;
-
-    //         var raw = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(
-    //             File.ReadAllText(path)
-    //         );
-
-    //         foreach (var record in raw)
-    //         {
-    //             var ids = ((Newtonsoft.Json.Linq.JArray)record["deck_card_ids"])
-    //                 .Select(v => (int)v)
-    //                 .OrderBy(x => x);
-
-    //             decks.Add(string.Join(",", ids));
-    //         }
-
-    //         return decks;
-    //     }
-    // }
 
     // =================== 主生成器 ===================
     public class DeckGenerator : IEnumerable<(int[] deck, int? center)>
@@ -191,10 +200,17 @@ namespace DeckMiner.Services
             foreach (int cid in cardpool)
             {
                 int charId = cid / 1000;
-                if (!charCards.ContainsKey(charId))
-                    charCards[charId] = new List<int>();
-                charCards[charId].Add(cid);
+                if (!charCards.TryGetValue(charId, out var list))
+                {
+                    list = new List<int>();
+                    charCards[charId] = list;
+                }
+                list.Add(cid);
             }
+
+            // Pre-sort each char's card pool for deterministic behavior and slightly better cache locality
+            foreach (var kv in charCards)
+                kv.Value.Sort();
 
             TotalDecks = ComputeTotalCount();
         }
@@ -202,12 +218,12 @@ namespace DeckMiner.Services
         // 迭代生成所有卡组
         public IEnumerator<(int[] deck, int? center)> GetEnumerator()
         {
-            var allChars = charCards.Keys.ToList();
+            var allChars = new List<int>(charCards.Keys);
             if (allChars.Count < 3) yield break;
 
             foreach (var distr in RoleDistribution.GenerateRoleDistributions(allChars))
             {
-                if (centerChar.HasValue && !distr.Contains(centerChar.Value))
+                if (centerChar.HasValue && Array.IndexOf(distr, centerChar.Value) < 0)
                     continue;
 
                 foreach (var item in GenerateByDistribution(distr))
@@ -223,7 +239,8 @@ namespace DeckMiner.Services
             // mustcards[2]：需要所有技能都不为0（与原逻辑一致）
             foreach (var skill in mustcards[2])
             {
-                if (!tagCount.TryGetValue((SkillEffectType)skill, out int cnt) || cnt == 0)
+                var k = (SkillEffectType)skill;
+                if (!tagCount.TryGetValue(k, out int cnt) || cnt == 0)
                     return false;
             }
 
@@ -235,50 +252,93 @@ namespace DeckMiner.Services
         // ================== 分发角色 → 枚举卡组 ==================
         IEnumerable<(int[], int?)> GenerateByDistribution(int[] distribution)
         {
-            var charCounts = distribution.GroupBy(x => x)
-                                        .ToDictionary(g => g.Key, g => g.Count());
-
-            List<List<int[]>> cardChoices = new();
-
-            foreach (var (cid, count) in charCounts)
+            // char -> count
+            var charCounts = new Dictionary<int, int>();
+            foreach (var c in distribution)
             {
-                var pool = charCards[cid];
+                if (charCounts.TryGetValue(c, out int v)) charCounts[c] = v + 1;
+                else charCounts[c] = 1;
+            }
 
+            // build per-character card choices (each entry is a List<int[]> where each int[] is chosen cards for that char)
+            var cardChoices = new List<List<int[]>>(charCounts.Count);
+            foreach (var kv in charCounts)
+            {
+                int cid = kv.Key;
+                int count = kv.Value;
+                var pool = charCards[cid];
                 if (count == 1)
                 {
-                    cardChoices.Add(pool.Select(c => new[] { c }).ToList());
+                    var choices = new List<int[]>(pool.Count);
+                    foreach (var card in pool) choices.Add(new[] { card });
+                    cardChoices.Add(choices);
                 }
                 else if (count == 2)
                 {
-                    cardChoices.Add(Combinations(pool, 2).ToList());
+                    // combinations(pool, 2)
+                    var combos = new List<int[]>();
+                    int m = pool.Count;
+                    for (int i = 0; i < m; i++)
+                        for (int j = i + 1; j < m; j++)
+                            combos.Add(new[] { pool[i], pool[j] });
+                    cardChoices.Add(combos);
+                }
+                else
+                {
+                    throw new InvalidOperationException("角色数量超过2，不符合规则");
                 }
             }
 
-            foreach (var pick in Cartesian(cardChoices))
+            // 笛卡尔积迭代（索引递归，避免中间大分配）
+            foreach (var pick in CartesianIndexBased(cardChoices))
             {
-                List<int> deck = pick.SelectMany(a => a).ToList();
-                deck.Sort();
-                string deckKey = string.Join(",", deck);
+                // pick is List<int[]> of chosen per-role arrays
+                int deckSize = 0;
+                foreach (var arr in pick) deckSize += arr.Length;
 
-                // if (simulated.Contains(deckKey)) continue;
+                var deck = new List<int>(deckSize);
+                foreach (var arr in pick) deck.AddRange(arr);
+
+                // sort deck to produce its key (used for simulated check etc.)
+                deck.Sort();
+
                 if (!CheckMustCards(deck)) continue;
                 if (HasCardConflict(deck)) continue;
 
                 var tags = SkillTagCounter.CountSkillTags(deck);
                 if (!CheckSkillTags(tags)) continue;
 
-                HashSet<int> centers =
-                    centerCard != null ? centerCard.Intersect(deck).ToHashSet() :
-                                        new HashSet<int> { 0 };
+                // build centers
+                HashSet<int> centers;
+                if (centerCard != null)
+                {
+                    centers = new HashSet<int>();
+                    foreach (var d in deck)
+                        if (centerCard.Contains(d)) centers.Add(d);
+                    if (centers.Count == 0) continue;
+                }
+                else
+                {
+                    centers = new HashSet<int> { 0 };
+                }
 
-                if (centerCard != null && centers.Count == 0)
+                // prepare allowed first/last candidates to reduce permutations
+                var allowedFirst = new List<int>();
+                var allowedLast = new List<int>();
+                foreach (var d in deck)
+                {
+                    if (!DB.DB_TAG.TryGetValue(d, out var tagset)) continue;
+                    if (!tagset.Contains(SkillEffectType.ScoreGain)) allowedFirst.Add(d);
+                    if (!tagset.Contains(SkillEffectType.DeckReset)) allowedLast.Add(d);
+                }
+
+                if (allowedFirst.Count == 0 || allowedLast.Count == 0)
                     continue;
 
-                foreach (var perm in Permute(deck))
+                // generate permutations with fixed first and last to reduce search space
+                foreach (var perm in PermutationsWithFixedEnds(deck, allowedFirst, allowedLast))
                 {
-                    if (DB.DB_TAG[perm[0]].Contains(SkillEffectType.ScoreGain)) continue;
-                    if (DB.DB_TAG[perm[^1]].Contains(SkillEffectType.DeckReset)) continue;
-
+                    // yield for each allowed center
                     if (centerCard != null)
                     {
                         foreach (var c in centers)
@@ -313,64 +373,152 @@ namespace DeckMiner.Services
             return false;
         }
 
-        // 组合
-        static IEnumerable<int[]> Combinations(List<int> list, int k)
+        // Cartesian using index recursion to avoid LINQ allocations
+        static IEnumerable<List<int[]>> CartesianIndexBased(List<List<int[]>> sequences)
         {
-            if (k == 0) { yield return Array.Empty<int>(); yield break; }
-            if (k > list.Count) yield break;
+            int k = sequences.Count;
+            if (k == 0) { yield break; }
 
-            for (int i = 0; i < list.Count; i++)
+            var indices = new int[k];
+            var sizes = new int[k];
+            for (int i = 0; i < k; i++)
             {
-                foreach (var tail in Combinations(list.Skip(i + 1).ToList(), k - 1))
+                sizes[i] = sequences[i].Count;
+                if (sizes[i] == 0) yield break; // one sequence empty -> no product
+            }
+
+            while (true)
+            {
+                var res = new List<int[]>(k);
+                for (int i = 0; i < k; i++)
+                    res.Add(sequences[i][indices[i]]);
+                yield return res;
+
+                // increment indices
+                int pos = k - 1;
+                while (pos >= 0 && ++indices[pos] >= sizes[pos])
                 {
-                    yield return (new[] { list[i] }).Concat(tail).ToArray();
+                    indices[pos] = 0;
+                    pos--;
+                }
+                if (pos < 0) break;
+            }
+        }
+
+        // permutations optimization:
+        // 固定首位和末位只排列中间元素（如果 deck 长度为 n，则排列中间 n-2 项）
+        static IEnumerable<int[]> PermutationsWithFixedEnds(List<int> deck, List<int> allowedFirst, List<int> allowedLast)
+        {
+            int n = deck.Count;
+            if (n <= 1)
+            {
+                yield return deck.ToArray();
+                yield break;
+            }
+            if (n == 2)
+            {
+                // only two orders, still filter by allowedFirst/allowedLast
+                var a = deck[0]; var b = deck[1];
+                if (allowedFirst.Contains(a) && allowedLast.Contains(b))
+                    yield return new[] { a, b };
+                if (allowedFirst.Contains(b) && allowedLast.Contains(a))
+                    yield return new[] { b, a };
+                yield break;
+            }
+
+            // build set for quick membership check
+            var deckSet = new HashSet<int>(deck);
+
+            // middle pool is deck minus chosen first and last
+            // iterate allowed first/last pairs
+            foreach (var first in allowedFirst)
+            {
+                if (!deckSet.Contains(first)) continue;
+                foreach (var last in allowedLast)
+                {
+                    if (!deckSet.Contains(last)) continue;
+                    if (first == last) continue; // same element cannot be both first and last for unique elements
+
+                    // build middle list
+                    var middle = new List<int>(n - 2);
+                    foreach (var d in deck)
+                    {
+                        if (d == first || d == last) continue;
+                        middle.Add(d);
+                    }
+
+                    // permute middle (size n-2, often 4 -> 24 permutations)
+                    foreach (var midPerm in PermuteInternalArray(middle))
+                    {
+                        var arr = new int[n];
+                        arr[0] = first;
+                        for (int i = 0; i < midPerm.Length; i++) arr[1 + i] = midPerm[i];
+                        arr[n - 1] = last;
+                        yield return arr;
+                    }
                 }
             }
         }
 
-        // 笛卡尔积
-        static IEnumerable<List<T>> Cartesian<T>(List<List<T>> sequences)
+        // permute small array (returns all permutations)
+        static IEnumerable<int[]> PermuteInternalArray(List<int> list)
         {
-            IEnumerable<List<T>> result = new[] { new List<T>() };
-            foreach (var seq in sequences)
-            {
-                result =
-                    from r in result
-                    from s in seq
-                    select r.Concat(new[] { s }).ToList();
-            }
-            return result;
+            int n = list.Count;
+            if (n == 0) { yield return Array.Empty<int>(); yield break; }
+            var arr = list.ToArray();
+            foreach (var perm in HeapPermutation(arr, n))
+                yield return perm;
         }
 
-        // 全排列
-        static IEnumerable<int[]> Permute(List<int> list)
+        // Heap's algorithm implementation returning copies
+        static IEnumerable<int[]> HeapPermutation(int[] array, int size)
         {
-            return PermuteInternal(list, 0);
-        }
-        static IEnumerable<int[]> PermuteInternal(List<int> arr, int start)
-        {
-            if (start >= arr.Count)
-                yield return arr.ToArray();
+            int n = size;
+            var a = new int[n];
+            Array.Copy(array, a, n);
+            var c = new int[n];
+            yield return (int[])a.Clone();
 
-            for (int i = start; i < arr.Count; i++)
+            int i = 0;
+            while (i < n)
             {
-                (arr[start], arr[i]) = (arr[i], arr[start]);
-                foreach (var result in PermuteInternal(arr, start + 1))
-                    yield return result;
-                (arr[start], arr[i]) = (arr[i], arr[start]);
+                if (c[i] < i)
+                {
+                    if (i % 2 == 0)
+                    {
+                        Swap(a, 0, i);
+                    }
+                    else
+                    {
+                        Swap(a, c[i], i);
+                    }
+                    yield return (int[])a.Clone();
+                    c[i]++;
+                    i = 0;
+                }
+                else
+                {
+                    c[i] = 0;
+                    i++;
+                }
             }
+        }
+
+        static void Swap(int[] a, int i, int j)
+        {
+            int t = a[i]; a[i] = a[j]; a[j] = t;
         }
 
         // 计算卡组总数
         int ComputeTotalCount()
         {
             int total = 0;
-            var allChars = charCards.Keys.ToList();
+            var allChars = new List<int>(charCards.Keys);
             if (allChars.Count < 3) return 0;
 
             foreach (var dist in RoleDistribution.GenerateRoleDistributions(allChars))
             {
-                if (centerChar.HasValue && !dist.Contains(centerChar.Value))
+                if (centerChar.HasValue && Array.IndexOf(dist, centerChar.Value) < 0)
                     continue;
 
                 total += CountByDistribution(dist);
@@ -388,5 +536,4 @@ namespace DeckMiner.Services
             return count;
         }
     }
-
 }

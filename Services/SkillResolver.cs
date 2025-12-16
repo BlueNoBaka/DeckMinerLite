@@ -468,7 +468,7 @@ namespace DeckMiner.Services
                         !int.TryParse(key.Substring(0, 1), out int typeValue) ||
                         !int.TryParse(key.Substring(1, 1), out int opValue) ||
                         !int.TryParse(key.Substring(2), out int valueData) ||
-                        !Enum.IsDefined(typeof(SkillConditionType), typeValue) || // ⚠️ 注意：这里可能应该检查 CenterSkillConditionType
+                        !Enum.IsDefined(typeof(CenterSkillConditionType), typeValue) ||
                         !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
                     {
                         // 解析失败或格式不符，返回默认值 (该默认值也会被缓存)
@@ -512,7 +512,7 @@ namespace DeckMiner.Services
                     return false;
                 }
 
-                var (conditionType, operatorOrFlag, conditionValue) = ParseCenterSkillConditionId(conditionId);
+                var (conditionType, operatorOrFlag, conditionValue) = ParseCenterSkillConditionId(condition);
 
                 bool isSatisfied = false;
 

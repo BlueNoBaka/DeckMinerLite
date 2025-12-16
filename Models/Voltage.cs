@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
+
 namespace DeckMiner.Models
 {
     public class Voltage
     {
         // 静态缓存：用于存储达到某个等级所需的总点数
-        private static readonly Dictionary<int, int> _levelPointsCache = new Dictionary<int, int>();
+        private static readonly ConcurrentDictionary<int, int> _levelPointsCache = new ConcurrentDictionary<int, int>();
 
         private int _currentPoints;
         private int _currentLevel; 
@@ -30,29 +32,19 @@ namespace DeckMiner.Models
         {
             if (level <= 0) return 0;
 
-            if (_levelPointsCache.TryGetValue(level, out int cachedPoints))
+            return _levelPointsCache.GetOrAdd(level, (lvl) => 
             {
-                return cachedPoints;
-            }
-
-            int points;
-            if (level <= 20)
-            {
-                // 5 * N * (N + 1)
-                points = 5 * level * (level + 1);
-            }
-            else
-            {
-                // 20级总点数：5 * 20 * 21 = 2100 Pt
-                // 21级需要 2100 + 200 = 2300 Pt
-                // 公式：2100 + (level - 20) * 200
-                // 简化：level * 200 - 1900
-                points = level * 200 - 1900; 
-            }
-
-            // 存入缓存
-            _levelPointsCache[level] = points;
-            return points;
+                if (lvl <= 20)
+                {
+                    // 公式：5 * N * (N + 1)
+                    return 5 * lvl * (lvl + 1);
+                }
+                else
+                {
+                    // 公式：2100 + (lvl - 20) * 200
+                    return lvl * 200 - 1900; 
+                }
+            });
         }
 
         /// <summary>

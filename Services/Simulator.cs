@@ -81,7 +81,7 @@ namespace DeckMiner.Services
                     case "HoldMid":
                     case "Flick":
                     case "Trace":
-                        if (Player.Mental.GetRate() > afkMental)
+                        if (afkMental != 0 && Player.Mental.GetRate() > afkMental)
                         {
                             try
                             {

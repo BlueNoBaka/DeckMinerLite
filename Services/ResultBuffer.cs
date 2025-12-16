@@ -55,7 +55,7 @@ namespace DeckMiner.Services
         private readonly string _musicId;
         private readonly string _tier;
 
-        public SimulationBuffer(string musicId, string tier, int batchSize = 1000000)
+        public SimulationBuffer(string musicId, string tier, int batchSize = 10000000)
         {
             _musicId = musicId;
             _tier = tier;
