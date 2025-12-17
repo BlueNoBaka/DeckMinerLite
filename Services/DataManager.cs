@@ -24,15 +24,10 @@ namespace DeckMiner.Services
         {
             try
             {
-                Console.WriteLine("1. 正在加载 CardDbData...");
                 GetCardDatabase();
-
-                Console.WriteLine("2. 正在加载 Skill 数据库...");
                 GetSkillDatabase();
                 GetCenterAttributeDatabase();
                 GetCenterSkillDatabase();
-
-                Console.WriteLine("3. 正在加载 Music 数据库...");
                 GetMusicDatabase();
             }
             catch (FileNotFoundException ex)

@@ -5,6 +5,7 @@ using System.Text.Json;
 using DeckMiner.Data;
 using DeckMiner.Models;
 using DeckMiner.Services;
+using DeckMiner.Config;
 
 namespace DeckMiner.Services
 {
@@ -25,18 +26,53 @@ namespace DeckMiner.Services
 
     public static class PtCalculator
     {
+        // 定义解放等级加成表
+        private static readonly Dictionary<int, double> LimitBreakBonusMap = new()
+        {
+            { 1, 1.0 }, { 2, 1.0 }, { 3, 1.0 }, { 4, 1.0 }, { 5, 1.0 },
+            { 6, 1.0 }, { 7, 1.0 }, { 8, 1.0 }, { 9, 1.0 }, { 10, 1.0 },
+            { 11, 1.2 },
+            { 12, 1.3 },
+            { 13, 1.35 },
+            { 14, 1.4 }
+        };
+
         /// <summary>
         /// 将分数转换为 PT 值（对应 Python 的 score2pt 逻辑）。
-        /// ⚠️ 请根据实际的计算逻辑修改此方法。
         /// </summary>
         public static List<SimulationResult> ScoreToPt(List<SimulationResult> results)
         {
-            // 假设 PT = Score * 10
-            const int PtMultiplier = 10;
-            
+            double sflBonus = 6.6;
+            var cardCache =  ConfigLoader.Config.CardCache;
+            var limitBreakLookup = new Dictionary<int, int>();
+
             foreach (var result in results)
             {
-                result.Pt = result.Score * PtMultiplier;
+                double relBonus = 1.4;
+                if (result.CenterCard != null)
+                {
+                    if (!limitBreakLookup.TryGetValue((int)result.CenterCard, out int limitBreak))
+                    {
+                        if (cardCache.TryGetValue((int)result.CenterCard, out var levels) && levels.Count > 1)
+                        {
+                            // 对应 Python 的 max(levels[1:])
+                            // 假设 levels[0] 是基础等级，[1:] 是各个技能/解放等级
+                            limitBreak = levels.Skip(1).Max();
+                        }
+                        else
+                        {
+                            limitBreak = 14; // 默认值
+                        }
+                        limitBreakLookup[(int)result.CenterCard] = limitBreak;
+                    }
+
+                    // 获取对应的加成系数
+                    if (!LimitBreakBonusMap.TryGetValue(limitBreak, out relBonus))
+                    {
+                        relBonus = 1.0;
+                    }
+                }
+                result.Pt = Convert.ToInt64(Math.Ceiling(result.Score * sflBonus * relBonus));
             }
             return results;
         }
@@ -156,14 +192,14 @@ namespace DeckMiner.Services
             var finalMap = new Dictionary<string, SimulationResult>();
             string[] files = Directory.GetFiles(_tempDir, $"temp_{_musicId}_{_tier}_*.json");
 
+            if (files.Length == 0) return;
+
             foreach (string file in files)
             {
                 var list = LoadResultsFromJson(file);
-
                 foreach (var result in list)
                 {
                     string key = MakeKey(result.DeckCardIds);
-
                     if (!finalMap.ContainsKey(key) || result.Score > finalMap[key].Score)
                     {
                         finalMap[key] = result;
@@ -171,13 +207,40 @@ namespace DeckMiner.Services
                 }
             }
 
-            // 保存最终
+            // 1. 构建最终路径
             string finalPath = Path.Combine(
                 AppContext.BaseDirectory,
                 "log",
                 $"simulation_results_{_musicId}_{_tier}.json"
             );
-            SaveSimulationResults(finalMap.Values.ToList(), finalPath, calcPt: true);
+
+            try 
+            {
+                // 2. 执行保存 (计算 PT 并写入磁盘)
+                SaveSimulationResults(finalMap.Values.ToList(), finalPath, calcPt: true);
+                
+                // 3. 保存成功后，删除临时文件
+                foreach (string file in files)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (IOException ex)
+                    {
+                        // 有时文件可能被其他进程占用，记录警告但不中断程序
+                        Console.WriteLine($"无法删除临时文件 {file}: {ex.Message}");
+                    }
+                }
+                
+                Console.WriteLine($"合并完成，已清理 {files.Length} 个临时文件。");
+            }
+            catch (Exception ex)
+            {
+                // 如果保存失败，不要删除 temp 文件，方便人工恢复数据
+                Console.WriteLine($"合并保存失败，临时文件已保留。错误: {ex.Message}");
+                throw; 
+            }
         }
 
         // =============== 你已有的保存方法（外部已提供） ===============

@@ -47,11 +47,6 @@ namespace DeckMiner.Models
             {
                 CurrentHp = Max(0, CurrentHp - damage);
             }
-            
-            if (CurrentHp == 0)
-            {
-                throw new MentalDownException();
-            }
         }
 
         public void SkillAdd(double value) // value 是百分比 (e.g., 50 表示 50%)
@@ -65,11 +60,5 @@ namespace DeckMiner.Models
 
         public override string ToString() => 
             $"Mental: {CurrentHp} / {MaxHp} ({GetRate():F2}%)";
-    }
-
-    // 异常类可以直接继承自 Exception
-    public class MentalDownException : Exception
-    {
-        public MentalDownException() : base("Mental HP 降至 0。") { }
     }
 }

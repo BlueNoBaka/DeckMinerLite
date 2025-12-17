@@ -28,7 +28,7 @@ namespace DeckMiner.Models
     /// </summary>
     public partial class Card : ICloneable
     {
-        private static readonly ConcurrentDictionary<string, Card> CardCache = new();
+        private static readonly ConcurrentDictionary<int, Card> CardCache = new();
 
         // ----------------- 属性 -----------------
         public string CardId { get; private set; }
@@ -42,7 +42,7 @@ namespace DeckMiner.Models
         public int Cool { get; private set; }
         public int Mental { get; private set; }
 
-        // 技能和效果 (假设这些类已定义)
+
         public CenterAttribute CenterAttribute { get; private set; } 
         public CenterSkill CenterSkill { get; private set; }
         public Skill SkillUnit { get; private set; }
@@ -52,7 +52,7 @@ namespace DeckMiner.Models
         public bool IsExcept { get; set; } = false; // 是否被除外
 
         // ----------------- 构造函数和缓存 -----------------
-        public Card(string seriesId, 
+        public Card(int seriesId, 
                     List<int> lvList = null)
         {
             // 确保 lvList 不为空，设置默认值
@@ -62,7 +62,7 @@ namespace DeckMiner.Models
             var dbCard = CardDataManager.CardDatabase;
 
             // 2. 初始化基本属性
-            CardId = seriesId;
+            CardId = seriesId.ToString();
             CardLevel = lvList[0];
             
             // 数据库查找
@@ -94,7 +94,7 @@ namespace DeckMiner.Models
     // ✅ 静态工厂方法：用于管理缓存和实例创建
     // ----------------------------------------------------
     public static Card GetInstance(
-        string seriesId, 
+        int seriesId, 
         List<int> lvList = null)
     {
         // 1. 检查缓存
@@ -104,16 +104,16 @@ namespace DeckMiner.Models
             var newCard = (Card)cachedCard.Clone();
             
             // 2. 更新等级和状态 (仅针对动态参数)
-            if (lvList != null)
-            {
-                newCard.CardLevel = lvList[0];
-                // 假设 Skill 类有 SetLevel 方法
-                // newCard.SkillUnit.SetLevel(lvList[2]); 
-                // newCard.CenterSkill.SetLevel(lvList[1]); 
+            // if (lvList != null)
+            // {
+            //     newCard.CardLevel = lvList[0];
+            //     // 假设 Skill 类有 SetLevel 方法
+            //     // newCard.SkillUnit.SetLevel(lvList[2]); 
+            //     // newCard.CenterSkill.SetLevel(lvList[1]); 
                 
-                // 重新计算状态 (注意：现在 _initStatus 不接受 dbCard 参数)
-                newCard._initStatus(); 
-            }
+            //     // 重新计算状态 (注意：现在 _initStatus 不接受 dbCard 参数)
+            //     newCard._initStatus(); 
+            // }
             
             return newCard; // ✅ 现在可以在方法中返回对象了
         }
@@ -138,12 +138,12 @@ namespace DeckMiner.Models
         var finalNewCard = (Card)instanceToCache.Clone();
         
         // 重新应用动态等级（因为 GetOrAdd 内部的 factory 可能会使用 null lvList）
-        if (lvList != null)
-        {
-            finalNewCard.CardLevel = lvList[0];
-            // ... (其他等级设置逻辑)
-            finalNewCard._initStatus(); 
-        }
+        // if (lvList != null)
+        // {
+        //     finalNewCard.CardLevel = lvList[0];
+        //     // ... (其他等级设置逻辑)
+        //     finalNewCard._initStatus(); 
+        // }
 
         return finalNewCard;
     }

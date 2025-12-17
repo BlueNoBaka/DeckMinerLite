@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq; // 用于 Linq 扩展方法
 using System.Collections.Concurrent;
 using DeckMiner.Models;
 
@@ -101,7 +99,7 @@ namespace DeckMiner.Config
                 {
                     // 调用上面实现的静态配置方法获取等级
                     List<int> levels = GetCardLevels(cardId);
-                    return new CardDeckInfo(cardId.ToString(), levels);
+                    return new CardDeckInfo(cardId, levels);
                 })
                 .ToList();
         }

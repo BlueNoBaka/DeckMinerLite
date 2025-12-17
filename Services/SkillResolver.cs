@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using static System.Math;
 using DeckMiner.Data;
 using DeckMiner.Models;
@@ -18,6 +19,7 @@ namespace DeckMiner.Services
             { 105, new HashSet<int> { 1051, 1052 } }
         };
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static AttributeType MapEffectToAttribute(CenterAttributeEffectType effectType)
         {
             return effectType switch
@@ -109,31 +111,24 @@ namespace DeckMiner.Services
         /// </summary>
         public static void ApplyCenterAttribute(LiveStatus playerAttrs, int effectId, List<string> targetIds)
         {
-            // 这里需要复杂的 ID 解析逻辑，与 Python 版本相同
-            string idStr = effectId.ToString();
-
             int enumBaseValue, changeDirection, valueData;
 
-            // ID 解析逻辑
-            if (idStr.Length == 8)
+            // 假设 effectId 为 8位 (10000000-99999999) 或 9位 (100000000-999999999)
+            if (effectId >= 10000000 && effectId <= 99999999) // 8位
             {
-                if (!int.TryParse(idStr.Substring(0, 1), out enumBaseValue) ||
-                    !int.TryParse(idStr.Substring(1, 1), out changeDirection) ||
-                    !int.TryParse(idStr.Substring(2), out valueData)) return;
+                enumBaseValue = effectId / 10000000;
+                changeDirection = effectId / 1000000 % 10;
+                valueData = effectId % 1000000;
             }
-            else if (idStr.Length == 9)
+            else if (effectId >= 100000000 && effectId <= 999999999) // 9位
             {
-                if (!int.TryParse(idStr.Substring(0, 2), out enumBaseValue) ||
-                    !int.TryParse(idStr.Substring(2, 1), out changeDirection) ||
-                    !int.TryParse(idStr.Substring(3), out valueData)) return;
+                enumBaseValue = effectId / 10000000; // 此时解析出前两位
+                changeDirection = effectId / 1000000 % 10;
+                valueData = effectId % 1000000;
             }
-            else
-            {
-                // logger.Error("错误: 效果ID长度不符合已知规则 (8或9位)。");
-                return;
-            }
+            else return;
 
-            if (!Enum.IsDefined(typeof(CenterAttributeEffectType), enumBaseValue)) return;
+            // 直接转换，不使用 Enum.IsDefined (反射开销太大)
             CenterAttributeEffectType effectType = (CenterAttributeEffectType)enumBaseValue;
 
             int changeSign = (changeDirection == 0) ? 1 : -1; // 0=增加/正向, 1=减少/负向
@@ -141,6 +136,7 @@ namespace DeckMiner.Services
             double doubleChange;
             double multiplier;
             var targetAttr = MapEffectToAttribute(effectType);
+            var cards = playerAttrs.Deck.Cards;
             // C# switch 语句实现效果应用
             switch (effectType)
             {
@@ -150,15 +146,14 @@ namespace DeckMiner.Services
                 case CenterAttributeEffectType.MentalRateChange:
                     doubleChange = valueData / 10000.0;
                     multiplier = 1.0 + doubleChange * changeSign;
-                    // 应用比率变化，遍历卡牌并检查目标
-                    foreach (var card in playerAttrs.Deck.Cards)
+                    for (int i = 0; i < 6; i++)
                     {
+                        var card = cards[i];
                         if (CheckMultiTarget(targetIds, card.CharactersId))
-                        {
                             card.ApplyAttributeRateChange(targetAttr, multiplier);
-                        }
                     }
                     break;
+
 
                 case CenterAttributeEffectType.SmileValueChange:
                 case CenterAttributeEffectType.PureValueChange:
@@ -167,12 +162,11 @@ namespace DeckMiner.Services
                 case CenterAttributeEffectType.ConsumeAPChange:
                     intChange = valueData * changeSign;
                     // 应用数值变化，遍历卡牌并检查目标
-                    foreach (var card in playerAttrs.Deck.Cards)
+                    for (int i = 0; i < 6; i++)
                     {
+                        var card = cards[i];
                         if (CheckMultiTarget(targetIds, card.CharactersId))
-                        {
                             card.ApplyAttributeValueChange(targetAttr, intChange);
-                        }
                     }
                     break;
 

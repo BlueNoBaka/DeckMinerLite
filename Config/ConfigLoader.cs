@@ -9,7 +9,7 @@ namespace DeckMiner.Config
     public static class ConfigLoader
     {
         private static CardConfig _configInstance;
-        private static readonly string ConfigFileName = "cardConfig.json";
+        private static readonly string ConfigFileName = "cardConfig.jsonc";
 
         public static CardConfig Config
         {

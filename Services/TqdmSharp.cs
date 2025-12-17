@@ -148,28 +148,23 @@ namespace TqdmSharp {
 
             public static string FormatSecondsToTime(long totalSeconds)
             {
-                // 1. 将秒数转换为 TimeSpan 对象
-                if (totalSeconds > int.MaxValue) return "--:--";
-                TimeSpan time = TimeSpan.FromSeconds(totalSeconds);
+                // 基础边界检查
+                if (totalSeconds < 0) return "00:00";
+                if (totalSeconds > 359999) return "--:--"; // 超过99小时限制，防止格式崩坏
 
-                // 2. 根据总小时数选择格式字符串
+                long hours = totalSeconds / 3600;
+                int minutes = (int)((totalSeconds % 3600) / 60);
+                int seconds = (int)(totalSeconds % 60);
 
-                if (time.TotalHours < 1)
+                // 只有在小时 > 0 时才包含小时位
+                // 使用内插字符串，编译器会优化为字符串格式化调用
+                if (hours == 0)
                 {
-                    // 如果小于 1 小时，只显示 mm:ss
-                    // "%m" 表示没有前导零的分钟数，但由于你需要显示 mm:ss，我们使用 "mm"
-                    // "mm" 表示带前导零的分钟数 (e.g., 05)
-                    // "ss" 表示带前导零的秒数 (e.g., 30)
-                    return time.ToString(@"mm\:ss");
+                    // 预检查以减少分支开销
+                    return $"{minutes:D2}:{seconds:D2}";
                 }
-                else
-                {
-                    // 如果大于等于 1 小时，显示 hh:mm:ss
-                    // "hh" 表示带前导零的小时数
-                    // "mm" 表示带前导零的分钟数
-                    // "ss" 表示带前导零的秒数
-                    return time.ToString(@"hh\:mm\:ss");
-                }
+                
+                return $"{hours:D2}:{minutes:D2}:{seconds:D2}";
             }
 
             /// <summary>

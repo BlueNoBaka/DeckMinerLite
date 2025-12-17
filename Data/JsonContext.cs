@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using DeckMiner.Config;
 using DeckMiner.Services;
@@ -21,11 +22,17 @@ namespace DeckMiner.Data
     [JsonSerializable(typeof(MusicDbDictionaryType))]
     [JsonSerializable(typeof(ChartData))]
     [JsonSerializable(typeof(CardConfig))]
+    [JsonSerializable(typeof(TaskConfig))]
     [JsonSerializable(typeof(SimulationResult))]
     [JsonSerializable(typeof(SimulationResultListType))]
 
     // 2. 告诉生成器如何格式化输出
-    [JsonSourceGenerationOptions(WriteIndented = true)]
+    [JsonSourceGenerationOptions(
+    WriteIndented = true,                                     // 格式化输出
+    ReadCommentHandling = JsonCommentHandling.Skip,           // 允许并跳过注释 (// 或 /* */)
+    AllowTrailingCommas = true,                               // 允许数组或对象末尾有多余的逗号
+    PropertyNameCaseInsensitive = true                        // 忽略属性名大小写（如 JSON 里的 musicid 对应 MusicId）
+    )]
     
     // 3. 继承自 JsonSerializerContext，并使用 partial 关键字
     public partial class AppJsonSerializerContext : JsonSerializerContext

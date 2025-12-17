@@ -12,6 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="database\**" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="cardConfig.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="cardConfig.jsonc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="task.jsonc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

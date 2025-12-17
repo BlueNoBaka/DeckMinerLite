@@ -83,11 +83,8 @@ namespace DeckMiner.Services
                     case "Trace":
                         if (afkMental != 0 && Player.Mental.GetRate() > afkMental)
                         {
-                            try
-                            {
-                                Player.ComboAdd("MISS", currentEvent.Name);
-                            }
-                            catch (MentalDownException ex)
+                            Player.ComboAdd("MISS", currentEvent.Name);
+                            if (Player.Mental.CurrentHp == 0)
                             {
                                 return Player.Score;
                             }

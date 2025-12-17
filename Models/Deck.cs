@@ -5,7 +5,16 @@ using static System.Math;
 
 namespace DeckMiner.Models
 {
-    public record CardDeckInfo(string CardId, List<int> Levels);
+    public readonly struct CardDeckInfo
+    {
+        public readonly int CardId;
+        public readonly List<int> Levels;
+        public CardDeckInfo(int id, List<int> levels)
+        {
+            CardId = id;
+            Levels = levels;
+        }
+    }
 
     /// <summary>
     /// 卡组类，管理卡牌队列和总属性。
@@ -23,7 +32,7 @@ namespace DeckMiner.Models
         {
             foreach (var cardData in cardInfo)
             {
-                string cardId = cardData.CardId;
+                int cardId = cardData.CardId;
                 List<int> lvList = cardData.Levels;
                 
                 // 使用 Card 构造函数 (会自动处理缓存和拷贝)

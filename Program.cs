@@ -7,7 +7,8 @@ using TqdmSharp;
 using DeckMiner.Config;
 using DeckMiner.Data;
 using DeckMiner.Models;
-using DeckMiner.Services; // DataManager 所在的命名空间
+using DeckMiner.Services;
+using System.Runtime.InteropServices; // DataManager 所在的命名空间
 
 // 注意：如果 Card 类中的 _initStatus 方法依赖 CardDataManager.CardDatabase，
 // 那么必须确保 CardDataManager 在 Deck 初始化之前被初始化。
@@ -17,102 +18,84 @@ class Program
 
     static void Main(string[] args)
     {
-        Console.WriteLine("--- 卡牌模拟器数据加载和卡组构建测试程序 ---");
+        Console.WriteLine("--- SukuShow Deck Miner ---");
 
         // ------------------------------------------------------------------
         // 步骤 1: 加载数据库文件
         // ------------------------------------------------------------------
+        Console.WriteLine("正在加载数据库...");
         DataManager dataManager = DataManager.Instance;
 
         var cardDb = dataManager.GetCardDatabase();
         var skillDb = dataManager.GetSkillDatabase();
         var centerAttrDb = dataManager.GetCenterAttributeDatabase();
         var centerSkillDb = dataManager.GetCenterSkillDatabase();
+        var musicDb = dataManager.GetMusicDatabase();
 
-        // ------------------------------------------------------------------
-        // 步骤 2: 初始化静态数据管理器
-        // ------------------------------------------------------------------
-        Console.WriteLine("\n4. 初始化 CardDataManager...");
         CardDataManager.Initialize(cardDb);
-        Console.WriteLine($"数据库中包含 {cardDb.Count} 张卡牌数据。");
-
-        Console.WriteLine("   初始化 SkillDataManager...");
         SkillDataManager.Initialize(skillDb, centerAttrDb, centerSkillDb);
 
         // ------------------------------------------------------------------
-        // 步骤 3: 构造测试卡组信息
+        // 步骤 2: 读取模拟任务
         // ------------------------------------------------------------------
-        // 格式: List<List<dynamic>> cardInfo
-        // [Card ID (string), [Card LV (int), CSkill LV (int), Skill LV (int)]]
+        var taskConfig = TaskLoader.LoadTasks("task.jsonc");
+        List<int> globalCardPool = taskConfig.CardPool;
+        var task = taskConfig.Task.First();
+        string MusicId = task.MusicId;
+        string Tier = task.Tier;
 
-        var cardInfo = CardConfig.ConvertDeckToSimulatorFormat(
-            [1041513, 1021701, 1021523, 1022701, 1043516, 1043802]
-            );
-
-        // ------------------------------------------------------------------
-        // 步骤 4: 创建 Deck 实例
-        // ------------------------------------------------------------------
-        Console.WriteLine("\n4. 正在创建 Deck (卡组)...");
-        Deck myDeck;
-        try
-        {
-            myDeck = new Deck(cardInfo);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"警告：尝试创建卡组时发生 KeyNotFoundException。可能是测试卡牌ID不存在。详细: {ex.Message}");
-            Console.ResetColor();
-            return;
-        }
-        catch (Exception ex)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"创建 Deck 失败: {ex.Message}");
-            Console.ResetColor();
-            return;
-        }
-
-        LiveStatus Player = new();
+        Console.WriteLine($"--- 歌曲: {musicDb[MusicId].Title} ({Tier}) ---");
+        Console.WriteLine("[卡池配置]");
+        List<int> excludeCards = [];
+        List<int> secondaryCenter = [1031533, 1032530, 1033528];
+        List<List<int>> mustcards = [task.MustCards.All, task.MustCards.Any, task.MustSkills];
         
-        // ------------------------------------------------------------------
-        // 步骤 7: LiveStatus 测试
-        // ------------------------------------------------------------------
-        List<int> cardpool = [
-        1011501,  // 沙知
-        1021523, //1021901, 
-        1021512, 1021701,  // 梢: 银河 BR 舞会 LR
-        //1022521, 
-        1022701, //1022901, 1022504,  // 缀: 银河 LR BR 明月
-        1023520, 1023701, 1023901,  // 慈: 银河 LR BR
-        1031519, 1031901,  // 帆: 舞会 BR(2024)
-        1032518, //1032901,  // 沙: 舞会 BR
-        1033514, 1033525, 1033901,  // 乃: 舞会 COCO夏 BR
-        1041513,  // 吟: 舞会
-        //1042516, 1042801, 1042802, // 1042515, // 1042512,  // 铃: 太阳 EA OE 暧昧mayday 舞会
-        1043515, 1043516, 1043801, 1043802,  // 芽: BLAST COCO夏 EA OE 舞会1043512
-        1051503, //1051501, 1051502,  // 泉: 天地黎明 DB RF
-        1052901, 1052503,  // 1052504  // 塞: BR 十六夜 天地黎明
-        ];
-        List<int> mustcards_all = [];
-        List<int> mustcards_any = [];
-        List<int> mustskills_all = [];
-        List<List<int>> mustcards = [mustcards_all, mustcards_any, mustskills_all];
-        int centerChar = 1043;
-        HashSet<int> availableCenter = new(){1043801, 1043802};
+        int centerChar = musicDb[MusicId].CenterCharacterId;
+
+        HashSet<int> cardIdsSet = new(globalCardPool);
+        cardIdsSet.ExceptWith(excludeCards);
+        var cardPool = cardIdsSet.ToList();
+        HashSet<int> primaryCenter = new();
+        HashSet<int> otherCenter = new();
+
+        foreach (int card in cardIdsSet)
+            if (card / 1000 == centerChar)
+            {
+                var rarity = card / 100 % 10; 
+                if (rarity == 7 || rarity == 8)
+                    primaryCenter.Add(card);
+                else
+                    otherCenter.Add(card);
+            }
+
+        foreach (int card in secondaryCenter)
+            if (card / 1000 == centerChar && cardIdsSet.Contains(card))
+                primaryCenter.Add(card);
+
+        HashSet<int> availableCenter;
+        if (primaryCenter.Count > 0) 
+            availableCenter = primaryCenter;
+        else
+            availableCenter = otherCenter;
+
+        if (availableCenter.Count > 0)
+            Console.WriteLine($"可用C位卡牌 ({availableCenter.Count}): [{string.Join(", ", availableCenter)}]");
+        else
+        {
+            Console.WriteLine("无可用的C位卡牌");
+        }
+
+        Console.WriteLine($"共计 {cardPool.Count} 张备选卡牌，正在计算卡组数量...");
         Stopwatch sw = new();
         sw.Start();
-        DeckGenerator deckgen = new DeckGenerator(cardpool, mustcards, centerChar, availableCenter);
-        Console.WriteLine(deckgen.TotalDecks);
+        DeckGenerator deckgen = new DeckGenerator(cardPool, mustcards, centerChar, availableCenter);
         sw.Stop();
-        Console.WriteLine($"计算卡组数量用时: {sw.ElapsedTicks / Stopwatch.Frequency}");
-        
-
-        const string MusicId = "405105";
-        const string Tier = "02";
+        Console.WriteLine($"  卡组数量: {deckgen.TotalDecks}");
+        Console.WriteLine($"  计算用时: {sw.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
 
         Simulator sim2 = new(MusicId, Tier); 
 
+        Console.WriteLine($"[开始模拟]");
         Stopwatch sw2 = new();
         long bestScore = 0;
         object lockObject = new();
@@ -154,7 +137,7 @@ class Program
         buffer.FlushFinal();
         buffer.MergeTempFiles();
         Console.WriteLine($"最高分: {bestScore:N0}");
-        Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2 .ElapsedTicks / (decimal)Stopwatch.Frequency}");
+        Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}");
         Console.WriteLine($"按 [Enter] 退出程序...");
         Console.Read();
     }
