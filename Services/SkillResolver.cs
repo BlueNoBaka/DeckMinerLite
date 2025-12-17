@@ -489,7 +489,7 @@ namespace DeckMiner.Services
         public static bool CheckCenterSkillCondition(
             LiveStatus playerAttrs, 
             string conditionId, 
-            string liveEvent = null)
+            LiveEventType liveEvent = LiveEventType.Unknown)
         {
             // C# 中的 switch 表达式/语句不能直接处理字符串作为 case 匹配，
             // 故使用原始的 if-else if 或 switch 语句 + enum
@@ -514,15 +514,15 @@ namespace DeckMiner.Services
                 switch (conditionType)
                 {
                     case CenterSkillConditionType.LiveStart:
-                        isSatisfied = liveEvent == "LiveStart";
+                        isSatisfied = liveEvent == LiveEventType.LiveStart;
                         break;
 
                     case CenterSkillConditionType.LiveEnd:
-                        isSatisfied = liveEvent == "LiveEnd";
+                        isSatisfied = liveEvent == LiveEventType.LiveEnd;
                         break;
 
                     case CenterSkillConditionType.FeverStart:
-                        isSatisfied = liveEvent == "FeverStart";
+                        isSatisfied = liveEvent == LiveEventType.FeverStart;
                         break;
 
                     case CenterSkillConditionType.FeverTime:

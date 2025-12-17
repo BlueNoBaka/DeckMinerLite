@@ -1,6 +1,7 @@
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.Swift;
+using DeckMiner.Services;
 using static System.Math;
 
 namespace DeckMiner.Models
@@ -103,7 +104,7 @@ namespace DeckMiner.Models
             }
         }
 
-        public void ComboAdd(string judgement, string noteType = null)
+        public void ComboAdd(string judgement, LiveEventType noteType = LiveEventType.Unknown)
         {
             switch (judgement)
             {

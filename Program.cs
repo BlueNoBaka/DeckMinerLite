@@ -137,7 +137,7 @@ class Program
         buffer.FlushFinal();
         buffer.MergeTempFiles();
         Console.WriteLine($"最高分: {bestScore:N0}");
-        Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}");
+        Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
         Console.WriteLine($"按 [Enter] 退出程序...");
         Console.Read();
     }

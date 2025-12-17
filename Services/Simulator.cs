@@ -5,9 +5,70 @@ using DeckMiner.Models;
 
 namespace DeckMiner.Services
 {
+    public enum LiveEventType : byte
+    {
+        Unknown = 0,
+        // 基础音符
+        Single, Hold, HoldMid, Flick, Trace,
+        // 系统事件
+        CDavailable,
+
+        // TODO: 延迟MISS的NoteType
+        Ignore,
+        // 生命周期
+        LiveStart, LiveEnd,
+        // Fever
+        FeverStart, FeverEnd,
+    }
+
+    public readonly struct RuntimeEvent
+    {
+        public readonly double Time;
+        public readonly LiveEventType Type;
+
+        public RuntimeEvent(double time, LiveEventType type)
+        {
+            Time = time;
+            Type = type;
+        }
+    }
+
+    public static class ChartConverter
+    {
+        public static RuntimeEvent[] PrepareRuntimeEvents(ChartData chart)
+        {
+            var runtimeEvents = new List<RuntimeEvent>(chart.Events.Count);
+            
+            foreach (var ev in chart.Events)
+            {
+                var type = ev.Name switch
+                {
+                    "Single" => LiveEventType.Single,
+                    "Hold"   => LiveEventType.Hold,
+                    "HoldMid"   => LiveEventType.HoldMid,
+                    "Flick"  => LiveEventType.Flick,
+                    "Trace"  => LiveEventType.Trace,
+                    "LiveStart"  => LiveEventType.LiveStart,
+                    "LiveEnd"    => LiveEventType.LiveEnd,
+                    "FeverStart" => LiveEventType.FeverStart,
+                    "FeverEnd" => LiveEventType.FeverEnd,
+                    _ => LiveEventType.Unknown
+                };
+
+                if (type != LiveEventType.Ignore)
+                {
+                    runtimeEvents.Add(new RuntimeEvent(ev.Time, type));
+                }
+            }
+            
+            return runtimeEvents.ToArray(); // 转为数组，遍历速度最快
+        }
+    }
+
     public class Simulator(string musicId, string tier, int masterLv = 50)
     {
         public ChartData Chart = ChartLoader.GetChart(musicId, tier);
+        public RuntimeEvent[] ChartEvent = ChartConverter.PrepareRuntimeEvents(ChartLoader.GetChart(musicId, tier));
         public MusicDbData Music = DataManager.Instance.GetMusicDatabase()[musicId];
         public int MasterLv = masterLv;
         public CardConfig Config = ConfigLoader.Config;
@@ -44,19 +105,19 @@ namespace DeckMiner.Services
             Player.HpCalc();
             Player.BaseScoreCalc(Chart.AllNoteSize);
 
-            var chartEvents = Chart.Events;
-            var extraEvents = new PriorityQueue<LiveEventData, double>();
+            var chartEvents = ChartEvent;
+            var extraEvents = new PriorityQueue<RuntimeEvent, double>();
             extraEvents.Enqueue(
-                new LiveEventData(Player.Cooldown, "CDavailable"),
+                new RuntimeEvent(Player.Cooldown, LiveEventType.CDavailable),
                 Player.Cooldown
                 );
 
             int i_event = 0;
             Card cardNow = d.TopCard();
 
-            while (i_event < Chart.Events.Count)
+            while (i_event < chartEvents.Length)
             {
-                LiveEventData currentEvent;
+                RuntimeEvent currentEvent;
                 double nextChartTime = chartEvents[i_event].Time;
 
                 // 获取下一个动态 Extra 事件的时间
@@ -74,16 +135,16 @@ namespace DeckMiner.Services
                     currentEvent = extraEvents.Dequeue();
                 }
 
-                switch (currentEvent.Name)
+                switch (currentEvent.Type)
                 {
-                    case "Single":
-                    case "Hold":
-                    case "HoldMid":
-                    case "Flick":
-                    case "Trace":
+                    case LiveEventType.Single:
+                    case LiveEventType.Hold:
+                    case LiveEventType.HoldMid:
+                    case LiveEventType.Flick:
+                    case LiveEventType.Trace:
                         if (afkMental != 0 && Player.Mental.GetRate() > afkMental)
                         {
-                            Player.ComboAdd("MISS", currentEvent.Name);
+                            Player.ComboAdd("MISS", currentEvent.Type);
                             if (Player.Mental.CurrentHp == 0)
                             {
                                 return Player.Score;
@@ -100,7 +161,7 @@ namespace DeckMiner.Services
                                 Player.CDAvailable = false;
                                 var nextCd = currentEvent.Time + Player.Cooldown;
                                 extraEvents.Enqueue(
-                                    new LiveEventData(nextCd, "CDavailable"),
+                                    new RuntimeEvent(nextCd, LiveEventType.CDavailable),
                                     nextCd
                                     );
                                 cardNow = d.TopCard();
@@ -108,7 +169,7 @@ namespace DeckMiner.Services
                         }
                         break;
 
-                    case "CDavailable":
+                    case LiveEventType.CDavailable:
                         Player.CDAvailable = true;
                         if (cardNow != null && Player.Ap >= cardNow.Cost)
                         {
@@ -118,20 +179,20 @@ namespace DeckMiner.Services
                             Player.CDAvailable = false;
                             var nextCd = currentEvent.Time + Player.Cooldown;
                             extraEvents.Enqueue(
-                                new LiveEventData(nextCd, "CDavailable"),
+                                new RuntimeEvent(nextCd, LiveEventType.CDavailable),
                                 nextCd
                                 );
                             cardNow = d.TopCard();
                         }
                         break;
 
-                    case string e when e.StartsWith('_'):
+                    case LiveEventType.Ignore:
                         break;
 
-                    case "FeverStart":
-                    case "LiveStart":
-                    case "LiveEnd":
-                        if (currentEvent.Name == "FeverStart")
+                    case LiveEventType.LiveStart:
+                    case LiveEventType.LiveEnd:
+                    case LiveEventType.FeverStart:
+                        if (currentEvent.Type == LiveEventType.FeverStart)
                         {
                             Player.Voltage.SetFever(true);
                         }
@@ -139,18 +200,18 @@ namespace DeckMiner.Services
                         {
                             foreach (var (condition, effect) in CenterCard.GetCenterSkill())
                             {
-                                if (SkillResolver.CheckCenterSkillCondition(Player, condition, currentEvent.Name))
+                                if (SkillResolver.CheckCenterSkillCondition(Player, condition, currentEvent.Type))
                                 {
                                     SkillResolver.ApplyCenterSkillEffect(Player, effect);
                                 }
                             }
                         }
                         break;
-                    case "FeverEnd":
+                    case LiveEventType.FeverEnd:
                         Player.Voltage.SetFever(false);
                         break;
                     default:
-                        Console.WriteLine($"未处理的事件: {currentEvent.Name}");
+                        Console.WriteLine($"未处理的事件: {currentEvent.Time}, {currentEvent.Type}");
                         break;
 
                 }
