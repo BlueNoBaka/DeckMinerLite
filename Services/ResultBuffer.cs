@@ -103,7 +103,7 @@ namespace DeckMiner.Services
             Directory.CreateDirectory(_tempDir);
         }
 
-        private static string MakeKey(IEnumerable<int> ids)
+        public static string MakeKey(IEnumerable<int> ids)
             => string.Join(",", ids.OrderBy(x => x));
 
         /// <summary>
@@ -190,8 +190,34 @@ namespace DeckMiner.Services
         public void MergeTempFiles()
         {
             var finalMap = new Dictionary<string, SimulationResult>();
-            string[] files = Directory.GetFiles(_tempDir, $"temp_{_musicId}_{_tier}_*.json");
+            string finalPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "log",
+                $"simulation_results_{_musicId}_{_tier}.json"
+            );
 
+            // 1. 尝试载入原有 Log
+            Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+            if (File.Exists(finalPath))
+            {
+                try
+                {
+                    var existingResults = LoadResultsFromJson(finalPath);
+                    foreach (var result in existingResults)
+                    {
+                        string key = MakeKey(result.DeckCardIds);
+                        finalMap[key] = result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"读取已有结果失败，将直接覆盖旧文件: {ex.Message}");
+                    // 不 throw，避免影响本次合并
+                }
+            }
+
+            string[] files = Directory.GetFiles(_tempDir, $"temp_{_musicId}_{_tier}_*.json");
+            
             if (files.Length == 0) return;
 
             foreach (string file in files)
@@ -206,13 +232,6 @@ namespace DeckMiner.Services
                     }
                 }
             }
-
-            // 1. 构建最终路径
-            string finalPath = Path.Combine(
-                AppContext.BaseDirectory,
-                "log",
-                $"simulation_results_{_musicId}_{_tier}.json"
-            );
 
             try 
             {
@@ -245,7 +264,6 @@ namespace DeckMiner.Services
 
         // =============== 你已有的保存方法（外部已提供） ===============
         private const string DefaultLogPath = "log/simulation_results.json";
-
         /// <summary>
         /// 将模拟结果数据保存到 JSON 文件，只保留相同卡组的最高分，并可选地计算 PT 值。
         /// </summary>
@@ -267,7 +285,7 @@ namespace DeckMiner.Services
             {
                 // 创建标准化 Key: 排序后的卡牌ID字符串
                 // 必须使用排序后的 key 来识别唯一的卡组组合
-                string sortedCardIdsKey = string.Join(",", result.DeckCardIds.OrderBy(id => id));
+                string sortedCardIdsKey = MakeKey(result.DeckCardIds);
 
                 if (!uniqueDecksBestScores.TryGetValue(sortedCardIdsKey, out var bestResult) || 
                     result.Score > bestResult.Score)
@@ -281,32 +299,12 @@ namespace DeckMiner.Services
             var processedResults = uniqueDecksBestScores.Values.ToList();
 
             // ----------------------------------------------------
-            // 步骤 2: 计算 PT 值并合并已有日志
+            // 步骤 2: 计算 PT
             // ----------------------------------------------------
             if (calcPt)
             {
-                // 计算 PT 值
+                // 计算 PT
                 processedResults = PtCalculator.ScoreToPt(processedResults);
-
-                // 合并既有 log
-                if (File.Exists(filename))
-                {
-                    try
-                    {
-                        var existingResults = LoadResultsFromJson(filename);
-                        if (existingResults != null)
-                        {
-                            processedResults.AddRange(existingResults);
-                            // 合并后，需要再次进行去重和取最高分的操作，以防新旧日志中有相同的卡组
-                            // 简化处理：这里仅将新旧结果合并在一起，并依赖后续的排序。
-                            // 完整的 Python 兼容性需要在这里实现复杂的字典合并逻辑，但通常我们会依赖排序后的去重。
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine($"警告: 读取或合并现有日志失败 ({e.Message})。将覆盖文件。");
-                    }
-                }
 
                 // 排序: 按 PT 降序
                 processedResults.Sort((a, b) => b.Pt.CompareTo(a.Pt));
@@ -333,7 +331,7 @@ namespace DeckMiner.Services
                 string outputJson = JsonSerializer.Serialize(processedResults, typeInfo);
 
                 // 写入文件
-                File.WriteAllText(filename, outputJson, System.Text.Encoding.UTF8);
+                File.WriteAllText(filename, outputJson);
 
                 Console.WriteLine($"模拟结果已保存到 {filename}");
             }

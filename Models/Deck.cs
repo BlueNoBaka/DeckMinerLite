@@ -1,19 +1,14 @@
-using System;
+using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Linq;
 using static System.Math;
 
 namespace DeckMiner.Models
 {
-    public readonly struct CardDeckInfo
+    public readonly struct CardDeckInfo(int id, List<int> levels)
     {
-        public readonly int CardId;
-        public readonly List<int> Levels;
-        public CardDeckInfo(int id, List<int> levels)
-        {
-            CardId = id;
-            Levels = levels;
-        }
+        public readonly int CardId = id;
+        public readonly List<int> Levels = levels;
     }
 
     /// <summary>
@@ -22,22 +17,19 @@ namespace DeckMiner.Models
     /// </summary>
     public class Deck
     {
-        public List<Card> Cards { get; private set; } = new List<Card>();
-        public List<Card> Queue { get; private set; } = new List<Card>();
+        public Card[] Cards = new Card[6];
+        public List<Card> Queue { get; private set; } = new List<Card>(6);
         public int Appeal { get; private set; } = 0;
         public List<string> CardLog { get; private set; } = new List<string>();
+        public Card TopCard;
 
         // 构造函数
         public Deck(List<CardDeckInfo> cardInfo) // [Card ID, [LV, CSkillLV, SkillLV]]
         {
-            foreach (var cardData in cardInfo)
+            for (int i = 0; i < cardInfo.Count; i++)
             {
-                int cardId = cardData.CardId;
-                List<int> lvList = cardData.Levels;
-                
-                // 使用 Card 构造函数 (会自动处理缓存和拷贝)
-                // ⚠️ 注意：如果 Card 构造函数是静态工厂方法，则调用方式不同
-                Cards.Add(Card.GetInstance(cardId, lvList));
+                var cardData = cardInfo[i];
+                Cards[i] = Card.GetInstance(cardData.CardId, cardData.Levels);
             }
             Reset();
         }
@@ -48,31 +40,19 @@ namespace DeckMiner.Models
         /// 重置技能队列 (将所有非除外卡牌加入队列)。
         /// 对应 Python 的 reset
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Reset()
         {
             Queue.Clear();
             Queue.AddRange(Cards.Where(card => !card.IsExcept));
             
             // 卡组全部除外时的特殊处理
-            if (!Queue.Any())
+            if (Queue.Count == 0)
             {
                 // 确保队列至少有一个占位符或特殊逻辑
                 Queue.Add(null); 
             }
-        }
-
-        /// <summary>
-        /// 获取队列顶部的卡牌，但不移除。
-        /// 对应 Python 的 topcard
-        /// </summary>
-        public Card TopCard()
-        {
-            if (!Queue.Any())
-            {
-                Reset();
-            }
-            // 返回 Queue[0] (可能是 null, 如果卡组全被除外)
-            return Queue.First();
+            TopCard = Queue.First();
         }
 
         /// <summary>
@@ -81,24 +61,23 @@ namespace DeckMiner.Models
         /// </summary>
         public (List<List<string>> Condition, List<int> Effect) TopSkill()
         {
-            if (!Queue.Any())
-            {
-                Reset();
-            }
-            
-            var topCard = Queue.First();
-
-            if (topCard == null)
+            if (TopCard == null)
             {
                 // 队列中只有 null (卡组全被除外)
                 // 抛出异常或返回默认值
                 throw new InvalidOperationException("技能队列为空且卡组中所有卡牌均被除外。");
             }
 
-            CardLog.Add(topCard.FullName);
+            CardLog.Add(TopCard.FullName);
+            var result = TopCard.GetSkill();
             Queue.RemoveAt(0);
-            
-            return topCard.GetSkill();
+            if (Queue.Count == 0)
+            {
+                Reset();
+            }
+            TopCard = Queue.First();
+
+            return result;
         }
         
         // ----------------- 属性计算 -----------------
@@ -109,20 +88,27 @@ namespace DeckMiner.Models
         /// </summary>
         public int AppealCalc(int musicType) // musicType: 1(Smile), 2(Pure), 3(Cool)
         {
-            double result = 0.0;
-            foreach (var card in Cards)
+            int result = 0;
+            switch (musicType)
             {
-                var appeals = new List<int> { card.Smile, card.Pure, card.Cool };
-                
-                if (musicType >= 1 && musicType <= 3)
-                {
-                    appeals[musicType - 1] *= 10;
-                }
-                
-                result += appeals.Sum();
+                case 1: // Smile
+                    foreach (var card in Cards)
+                        result += (card.Smile * 10) + card.Pure + card.Cool;
+                    break;
+                case 2: // Pure
+                    foreach (var card in Cards)
+                        result += card.Smile + (card.Pure * 10) + card.Cool;
+                    break;
+                case 3: // Cool
+                    foreach (var card in Cards)
+                        result += card.Smile + card.Pure + (card.Cool * 10);
+                    break;
+                default:
+                    foreach (var card in Cards)
+                        result += card.Smile + card.Pure + card.Cool;
+                    break;
             }
-            
-            // Python: ceil(result / 10)
+
             int finalAppeal = (int)Ceiling(result / 10.0);
             Appeal = finalAppeal;
             return finalAppeal;

@@ -23,13 +23,13 @@ namespace TqdmSharp {
             private readonly int _printsPerSecond;
             private readonly bool _useColor;
             // Total is set initially, but can be dynamically updated with each step
-            private int _total;
-            private int _current;
+            private long _total;
+            private long _current;
 
             // State
             private readonly Stopwatch _stopWatch;
             private readonly List<double> _timeDeque;
-            private readonly List<int> _iterDeque;
+            private readonly List<long> _iterDeque;
             private DateTime _startTime;
             private DateTime _prevTime;
             private int _nUpdates = 0;
@@ -37,7 +37,7 @@ namespace TqdmSharp {
             // Dynamic configuration that updates as progress applies
             private int _period = 1;
             private int _smoothCount = 50;
-            private int _prevIterations = 0;
+            private long _prevIterations = 0;
             private int _prevLength = 0;
             
             // Theme and output
@@ -55,7 +55,7 @@ namespace TqdmSharp {
             /// <param name="printsPerSecond">The estimated number of updates to the progress bar per second.</param>
             /// <param name="useColor">Indicates whether to use colored output for the progress bar.</param>
             /// <remarks>The prints per second is not an absolute number, and gets constantly tuned as the process progresses.</remarks>
-            public ProgressBar(bool useExpMovingAvg = true, double alpha = 0.1, int total = -1, int width = 30, int printsPerSecond = 10, bool useColor = false) {
+            public ProgressBar(bool useExpMovingAvg = true, double alpha = 0.1, long total = -1, int width = 30, int printsPerSecond = 10, bool useColor = false) {
                 // Update the state
                 _stopWatch = Stopwatch.StartNew();
                 _startTime = DateTime.Now;
@@ -172,7 +172,7 @@ namespace TqdmSharp {
             /// </summary>
             /// <param name="current">The current progress.</param>
             /// <param name="total">The total number of iterations expected. This will update the internal total counter given in the constructor.</param>
-            public void Progress(int current, int total) {
+            public void Progress(long current, long total) {
                 this._total = total;
                 Progress(current);
             }
@@ -181,7 +181,7 @@ namespace TqdmSharp {
             /// Updates the progress bar with the current progress.
             /// </summary>
             /// <param name="current">The current progress.</param>
-            public void Progress(int current) {
+            public void Progress(long current) {
                 this._current = current;
                 // _period is a number which is contantly tuned based on how often there are updates,
                 // to try and update the screen ~N times a second (parameter)
@@ -191,7 +191,7 @@ namespace TqdmSharp {
 
                 // Figure out our current state - how long passed and how many iterations since the last update
                 double elapsed = _stopWatch.Elapsed.TotalSeconds;
-                int iterations = current - _prevIterations;
+                long iterations = current - _prevIterations;
                 _prevIterations = current;
 
                 DateTime now = DateTime.Now;
@@ -217,7 +217,7 @@ namespace TqdmSharp {
                 }
                 else {
                     double totalTime = _timeDeque.Sum();
-                    int totalIters = _iterDeque.Sum();
+                    long totalIters = _iterDeque.Sum();
                     avgRate = totalIters / totalTime;
                 }
 
@@ -329,7 +329,7 @@ namespace TqdmSharp {
         /// <param name="printsPerSecond">The update frequency of the progress bar.</param>
         /// <param name="useColor">Indicates whether to use colored output for the progress bar.</param>
         /// <returns>An enumerable that iterates over the collection with progress tracking.</returns>
-        public static IEnumerable<T> Wrap<T>(IEnumerable<T> enumerable, int total, int width = 40, int printsPerSecond = 10, bool useColor = false) {
+        public static IEnumerable<T> Wrap<T>(IEnumerable<T> enumerable, long total, int width = 40, int printsPerSecond = 10, bool useColor = false) {
             return Tqdm.Wrap(enumerable, total, out var _, width, printsPerSecond, useColor);
         }
 
@@ -343,7 +343,7 @@ namespace TqdmSharp {
         /// <param name="useColor">Indicates whether to use colored output for the progress bar.</param>
         /// <returns>An enumerable that iterates over the collection with progress tracking.</returns>
         public static IEnumerable<T> Wrap<T>(ICollection<T> collection, out ProgressBar bar, int width = 40, int printsPerSecond = 10, bool useColor = false) {
-            int total = collection.Count;
+            long total = collection.Count;
             return Tqdm.Wrap(collection, total, out bar, width, printsPerSecond,useColor);
         }
 
@@ -357,12 +357,12 @@ namespace TqdmSharp {
         /// <param name="printsPerSecond">The update frequency of the progress bar.</param>
         /// <param name="useColor">Indicates whether to use colored output for the progress bar.</param>
         /// <returns>An enumerable that iterates over the collection with progress tracking.</returns>
-        public static IEnumerable<T> Wrap<T>(IEnumerable<T> enumerable, int total, out ProgressBar bar, int width = 40, int printsPerSecond = 10, bool useColor = false) {
+        public static IEnumerable<T> Wrap<T>(IEnumerable<T> enumerable, long total, out ProgressBar bar, int width = 40, int printsPerSecond = 10, bool useColor = false) {
             bar = new ProgressBar(total: total, width: width, printsPerSecond: printsPerSecond, useColor: useColor);
             return InternalWrap(enumerable, total, bar);
         }
 
-        private static IEnumerable<T> InternalWrap<T>(IEnumerable<T> enumerable, int total, ProgressBar bar) {
+        private static IEnumerable<T> InternalWrap<T>(IEnumerable<T> enumerable, long total, ProgressBar bar) {
             int count = 0;
             foreach (var item in enumerable) {
                 bar.Progress(count, total);

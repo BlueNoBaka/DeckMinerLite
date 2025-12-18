@@ -69,14 +69,14 @@ namespace DeckMiner.Models
 
             if (!dbCard.TryGetValue(CardId, out var cardDb))
             {
-                 throw new KeyNotFoundException($"Card ID {CardId} not found in CardDbData.");
+                throw new KeyNotFoundException($"Card ID {CardId} not found in CardDbData.");
             }
 
             FullName = $"[{cardDb.Name}] {cardDb.Description}".Replace('\u00A0', ' '); 
             CharactersId = cardDb.CharactersId;
             
             // 3. 计算状态并获取进化等级
-            int evo = _initStatus();
+            int evo = InitStatus();
             
             // 4. 初始化技能对象
             int centerAttrId = cardDb.CenterAttributeSeriesId;
@@ -153,7 +153,7 @@ namespace DeckMiner.Models
         /// 初始化卡牌状态值。
         /// 对应 Python 的 _init_status
         /// </summary>
-        private int _initStatus()
+        private int InitStatus()
         {
             var cardDb = CardDataManager.CardDatabase[CardId];
             
@@ -177,7 +177,7 @@ namespace DeckMiner.Models
             Pure = (int)Ceiling(maxPureBase * statusNorm / 100.0);
             Cool = (int)Ceiling(maxCoolBase * statusNorm / 100.0);
             Mental = (int)Ceiling(maxMentalBase * hpNorm / 100.0);
-            
+
             return evo;
         }
 
@@ -212,8 +212,8 @@ namespace DeckMiner.Models
             // newCard.SkillUnit = (Skill)SkillUnit.Clone();
             
             // 确保可变状态被重置或正确复制
-            newCard.ActiveCount = 0; // 重置计数器
-            newCard.IsExcept = false;
+            // newCard.ActiveCount = 0; // 重置计数器
+            // newCard.IsExcept = false;
             
             return newCard;
         }

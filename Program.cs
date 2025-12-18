@@ -40,105 +40,124 @@ class Program
         // ------------------------------------------------------------------
         var taskConfig = TaskLoader.LoadTasks("task.jsonc");
         List<int> globalCardPool = taskConfig.CardPool;
-        var task = taskConfig.Task.First();
-        string MusicId = task.MusicId;
-        string Tier = task.Tier;
-
-        Console.WriteLine($"--- 歌曲: {musicDb[MusicId].Title} ({Tier}) ---");
-        Console.WriteLine("[卡池配置]");
-        List<int> excludeCards = [];
-        List<int> secondaryCenter = [1031533, 1032530, 1033528];
-        List<List<int>> mustcards = [task.MustCards.All, task.MustCards.Any, task.MustSkills];
         
-        int centerChar = musicDb[MusicId].CenterCharacterId;
+        foreach (var task in taskConfig.Task)
+        {
+            string MusicId = task.MusicId;
+            string Tier = task.Tier;
 
-        HashSet<int> cardIdsSet = new(globalCardPool);
-        cardIdsSet.ExceptWith(excludeCards);
-        var cardPool = cardIdsSet.ToList();
-        HashSet<int> primaryCenter = new();
-        HashSet<int> otherCenter = new();
+            Console.WriteLine($"\n--- 歌曲: {musicDb[MusicId].Title} ({Tier}) ---");
+            Console.WriteLine("[卡池配置]");
+            List<int> excludeCards = task.ExcludeCards;
+            List<int> secondaryCenter = task.SecondaryCenter;
+            List<List<int>> mustcards = [task.MustCards.All, task.MustCards.Any, task.MustSkills];
+            
+            int centerChar = musicDb[MusicId].CenterCharacterId;
 
-        foreach (int card in cardIdsSet)
-            if (card / 1000 == centerChar)
-            {
-                var rarity = card / 100 % 10; 
-                if (rarity == 7 || rarity == 8)
+            HashSet<int> cardIdsSet = new(globalCardPool);
+            cardIdsSet.ExceptWith(excludeCards);
+            var cardPool = cardIdsSet.ToList();
+            HashSet<int> primaryCenter = new();
+            HashSet<int> otherCenter = new();
+
+            foreach (int card in cardIdsSet)
+                if (card / 1000 == centerChar)
+                {
+                    var rarity = card / 100 % 10; 
+                    if (rarity == 7 || rarity == 8)
+                        primaryCenter.Add(card);
+                    else
+                        otherCenter.Add(card);
+                }
+
+            foreach (int card in secondaryCenter)
+                if (card / 1000 == centerChar && cardIdsSet.Contains(card))
                     primaryCenter.Add(card);
-                else
-                    otherCenter.Add(card);
+
+            HashSet<int> availableCenter;
+            if (primaryCenter.Count > 0) 
+                availableCenter = primaryCenter;
+            else
+                availableCenter = otherCenter;
+
+            if (availableCenter.Count > 0)
+                Console.WriteLine($"可用C位卡牌 ({availableCenter.Count}): [{string.Join(", ", availableCenter)}]");
+            else
+            {
+                Console.WriteLine("无可用的C位卡牌");
             }
 
-        foreach (int card in secondaryCenter)
-            if (card / 1000 == centerChar && cardIdsSet.Contains(card))
-                primaryCenter.Add(card);
+            Console.WriteLine($"共计 {cardPool.Count} 张备选卡牌，正在计算卡组数量...");
+            Stopwatch sw = new();
+            sw.Start();
+            string logPath = Path.Combine(
+                    AppContext.BaseDirectory,
+                    "log",
+                    $"simulation_results_{MusicId}_{Tier}.json"
+                );
+            DeckGenerator deckgen = new DeckGenerator(cardPool, mustcards, centerChar, availableCenter, logPath);
+            sw.Stop();
+            Console.WriteLine($"  卡组数量: {deckgen.TotalDecks}");
+            Console.WriteLine($"  计算用时: {sw.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
 
-        HashSet<int> availableCenter;
-        if (primaryCenter.Count > 0) 
-            availableCenter = primaryCenter;
-        else
-            availableCenter = otherCenter;
+            if (deckgen.TotalDecks == 0) continue;
 
-        if (availableCenter.Count > 0)
-            Console.WriteLine($"可用C位卡牌 ({availableCenter.Count}): [{string.Join(", ", availableCenter)}]");
-        else
-        {
-            Console.WriteLine("无可用的C位卡牌");
-        }
+            Simulator sim2 = new(MusicId, Tier, task.MLv); 
 
-        Console.WriteLine($"共计 {cardPool.Count} 张备选卡牌，正在计算卡组数量...");
-        Stopwatch sw = new();
-        sw.Start();
-        DeckGenerator deckgen = new DeckGenerator(cardPool, mustcards, centerChar, availableCenter);
-        sw.Stop();
-        Console.WriteLine($"  卡组数量: {deckgen.TotalDecks}");
-        Console.WriteLine($"  计算用时: {sw.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
+            Console.WriteLine($"[开始模拟]");
+            Stopwatch sw2 = new();
+            long bestScore = -1;
+            int[] bestDeck = new int[6];
+            int? bestCenter = 0;
+            List<string> bestLog = new();
+            object lockObject = new();
 
-        Simulator sim2 = new(MusicId, Tier); 
+            SimulationBuffer buffer = new(
+                musicId: MusicId,
+                tier: Tier,
+                batchSize: 10000000
+            );
 
-        Console.WriteLine($"[开始模拟]");
-        Stopwatch sw2 = new();
-        long bestScore = 0;
-        object lockObject = new();
-
-        SimulationBuffer buffer = new(
-            musicId: MusicId,
-            tier: Tier,
-            batchSize: 10000000
-        );
-
-        sw2.Start();
-        Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), (deckTuple) =>
-        {
-            var card_id_list = deckTuple.deck;
-            var center_card = deckTuple.center;
-
-            var deckInfo = CardConfig.ConvertDeckToSimulatorFormat(card_id_list.ToList());
-            Deck deckToSimulate = new Deck(deckInfo);
-
-            var newScore = sim2.Run(deckToSimulate, (int)center_card);
-
-            buffer.AddResult(card_id_list, center_card, newScore);
-
-            if (newScore > bestScore)
+            sw2.Start();
+            Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), (deckTuple) =>
             {
-                lock (lockObject)
+                var card_id_list = deckTuple.deck;
+                var center_card = deckTuple.center;
+
+                var deckInfo = CardConfig.ConvertDeckToSimulatorFormat(card_id_list.ToList());
+                Deck deckToSimulate = new Deck(deckInfo);
+
+                var newScore = sim2.Run(deckToSimulate, (int)center_card);
+
+                buffer.AddResult(card_id_list, center_card, newScore);
+
+                if (newScore > bestScore)
                 {
-                    if (newScore > bestScore)
+                    lock (lockObject)
                     {
-                        bestScore = newScore;
-                        Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
-                        Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
-                        Console.WriteLine($"  Center: {center_card}");
+                        if (newScore > bestScore)
+                        {
+                            bestScore = newScore;
+                            bestDeck = card_id_list;
+                            bestCenter = center_card;
+                            bestLog = deckToSimulate.CardLog;
+                            Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
+                            Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
+                            Console.WriteLine($"  Center: {center_card}");
+                        }
                     }
                 }
-            }
-        });
-        sw2.Stop();
-        buffer.FlushFinal();
-        buffer.MergeTempFiles();
-        Console.WriteLine($"最高分: {bestScore:N0}");
-        Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
-        Console.WriteLine($"按 [Enter] 退出程序...");
+            });
+            sw2.Stop();
+            buffer.FlushFinal();
+            buffer.MergeTempFiles();
+            Console.WriteLine($"最高分: {bestScore:N0}");
+            Console.WriteLine($"卡组: ({string.Join(", ", bestDeck)})");
+            Console.WriteLine($"C位:   {bestCenter}");
+            Console.WriteLine($"Log:\n{string.Join(" | ", bestLog)}");
+            Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
+        }
+        Console.WriteLine($"\n已完成全部模拟任务，按 [Enter] 退出程序...");
         Console.Read();
     }
 }

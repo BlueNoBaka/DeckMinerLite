@@ -9,6 +9,7 @@ namespace DeckMiner.Models
         // 属性
         public int CurrentHp { get; private set; }
         public int MaxHp { get; private set; }
+        public double Rate { get; private set; }
         
         private int _badMinus;
         private int _missMinus;
@@ -18,6 +19,7 @@ namespace DeckMiner.Models
         {
             CurrentHp = 100;
             MaxHp = 100;
+            Rate = 100.0;
             // 初始值 (Python 原始值)
             _badMinus = 30;
             _missMinus = 50;
@@ -47,6 +49,7 @@ namespace DeckMiner.Models
             if (damage > 0)
             {
                 CurrentHp = Max(0, CurrentHp - damage);
+                Rate = MaxHp == 0 ? 0.0 : CurrentHp * 100.0 / MaxHp;
             }
         }
 
@@ -55,11 +58,10 @@ namespace DeckMiner.Models
             // Python: max(1, self.current_hp + ceil(self.max_hp * value / 100))
             int healAmount = (int)Ceiling(MaxHp * value / 100.0);
             CurrentHp = Max(1, CurrentHp + healAmount);
+            Rate = MaxHp == 0 ? 0.0 : CurrentHp * 100.0 / MaxHp;
         }
 
-        public double GetRate() => MaxHp == 0 ? 0.0 : CurrentHp * 100.0 / MaxHp;
-
         public override string ToString() => 
-            $"Mental: {CurrentHp} / {MaxHp} ({GetRate():F2}%)";
+            $"Mental: {CurrentHp} / {MaxHp} ({Rate:F2}%)";
     }
 }

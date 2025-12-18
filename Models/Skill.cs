@@ -27,26 +27,24 @@ namespace DeckMiner.Models
             var db = SkillDataManager.SkillDatabase;
 
             // 检查 SkillId 是否存在于数据库中
-            if (!db.ContainsKey(this.SkillId))
+            if (!db.TryGetValue(this.SkillId, out SkillDbData skillData))
             {
                  // 抛出异常，因为这是核心逻辑，数据必须存在
                  throw new KeyNotFoundException($"SkillId {this.SkillId} not found in Skill DB.");
             }
 
-            var skillData = db[this.SkillId];
-
             // 对应 self.cost: int = db[self.skill_id]["ConsumeAP"]
-            this.Cost = skillData.ConsumeAP;
+            Cost = skillData.ConsumeAP;
 
             // 对应 self.condition: list[list[str]] = [condition.split(",") for condition in ...]
             // C# 复杂列表处理和类型转换
             var conditionIds = skillData.RhythmGameSkillConditionIds;
-            this.Condition = conditionIds
+            Condition = conditionIds
                 .Select(conditionStr => conditionStr.Split(',').ToList())
                 .ToList();
             
             // 对应 self.effect: list[int] = db[self.skill_id]["RhythmGameSkillEffectId"]
-            this.Effect = skillData.RhythmGameSkillEffectId;
+            Effect = skillData.RhythmGameSkillEffectId;
         }
     }
 
@@ -69,36 +67,35 @@ namespace DeckMiner.Models
         public CenterSkill(int seriesId, int lv = 14)
         {
             // 对应 Python 的初始定义和检查
-            this.SkillId = "0"; // 默认值
+            SkillId = "0"; // 默认值
 
             if (seriesId == 0)
             {
                 // 如果 series_id == 0，则执行 return; C# 构造函数只需执行到最后。
-                this.Condition = new List<string>();
-                this.Effect = new List<int>();
+                Condition = new List<string>();
+                Effect = new List<int>();
                 return;
             }
             
             // 对应 self.skill_id = str(series_id * 100 + lv)
-            this.SkillId = (seriesId * 100 + lv).ToString();
+            SkillId = (seriesId * 100 + lv).ToString();
 
             var db = SkillDataManager.CenterSkillDatabase;
 
-            if (db.ContainsKey(this.SkillId))
+            if (db.TryGetValue(SkillId, out CenterSkillDbData skillData))
             {
-                var skillData = db[this.SkillId];
-                
+
                 // 对应 self.condition: list[str] = db[self.skill_id]["CenterSkillConditionIds"]
-                this.Condition = skillData.CenterSkillConditionIds;
+                Condition = skillData.CenterSkillConditionIds;
 
                 // 对应 self.effect: list[int] = db[self.skill_id]["CenterSkillEffectId"]
-                this.Effect = skillData.CenterSkillEffectId;
+                Effect = skillData.CenterSkillEffectId;
             }
             else
             {
                 // 如果找不到，初始化空列表或抛出异常，这里初始化空列表以匹配 seriesId=0 的情况
-                this.Condition = new List<string>();
-                this.Effect = new List<int>();
+                Condition = new List<string>();
+                Effect = new List<int>();
             }
         }
     }
@@ -121,24 +118,23 @@ namespace DeckMiner.Models
         public CenterAttribute(int seriesId)
         {
             // 对应 Python 的初始定义和检查
-            this.SkillId = "0"; // 默认值
+            SkillId = "0"; // 默认值
             
             if (seriesId == 0)
             {
-                this.Target = new List<List<string>>();
-                this.Effect = new List<int>();
+                Target = new List<List<string>>();
+                Effect = new List<int>();
                 return;
             }
             
             // 对应 self.skill_id = str(series_id + 1)
-            this.SkillId = (seriesId + 1).ToString();
+            SkillId = (seriesId + 1).ToString();
 
             var db = SkillDataManager.CenterAttributeDatabase;
 
-            if (db.ContainsKey(this.SkillId))
+            if (db.TryGetValue(SkillId, out CenterAttributeDbData skillData))
             {
-                var skillData = db[this.SkillId];
-                
+
                 // --- 处理 Target ---
                 // 对应 db[self.skill_id].get("TargetIds", None)
                 // C# 中 Dictionary 的 TryGetValue 或使用 if(ContainsKey) 结合空检查
@@ -146,14 +142,14 @@ namespace DeckMiner.Models
                 
                 if (targetIds != null)
                 {
-                     // 对应 [target.split(",") for target in ...]
-                     this.Target = targetIds
+                    // 对应 [target.split(",") for target in ...]
+                    Target = targetIds
                         .Select(targetStr => targetStr.Split(',').ToList())
                         .ToList();
                 }
                 else
                 {
-                     this.Target = new List<List<string>>();
+                    Target = new List<List<string>>();
                 }
 
                 // --- 处理 Effect ---
@@ -162,18 +158,18 @@ namespace DeckMiner.Models
                 
                 if (effectIds != null)
                 {
-                    this.Effect = effectIds;
+                    Effect = effectIds;
                 }
                 else
                 {
-                    this.Effect = new List<int>();
+                    Effect = new List<int>();
                 }
             }
             else
             {
                 // 如果找不到，初始化空列表
-                this.Target = new List<List<string>>();
-                this.Effect = new List<int>();
+                Target = new List<List<string>>();
+                Effect = new List<int>();
             }
         }
     }

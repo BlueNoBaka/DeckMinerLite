@@ -65,13 +65,23 @@ namespace DeckMiner.Services
         }
     }
 
-    public class Simulator(string musicId, string tier, int masterLv = 50)
+    public class Simulator
     {
-        public ChartData Chart = ChartLoader.GetChart(musicId, tier);
-        public RuntimeEvent[] ChartEvent = ChartConverter.PrepareRuntimeEvents(ChartLoader.GetChart(musicId, tier));
-        public MusicDbData Music = DataManager.Instance.GetMusicDatabase()[musicId];
-        public int MasterLv = masterLv;
-        public CardConfig Config = ConfigLoader.Config;
+        public ChartData Chart;
+        public RuntimeEvent[] ChartEvent;
+        public MusicDbData Music;
+        public int MasterLv;
+        public CardConfig Config;
+
+        public Simulator(string musicId, string tier, int masterLv = 50)
+        {
+            Chart = ChartLoader.GetChart(musicId, tier);
+            ChartEvent = ChartConverter.PrepareRuntimeEvents(Chart);
+            Music = DataManager.Instance.GetMusicDatabase()[musicId];
+            MasterLv = masterLv;
+            Config = ConfigLoader.Config;
+        }
+        
 
         public long Run(Deck d, int centerCardId)
         {
@@ -113,7 +123,7 @@ namespace DeckMiner.Services
                 );
 
             int i_event = 0;
-            Card cardNow = d.TopCard();
+            Card cardNow = d.TopCard;
 
             while (i_event < chartEvents.Length)
             {
@@ -142,7 +152,7 @@ namespace DeckMiner.Services
                     case LiveEventType.HoldMid:
                     case LiveEventType.Flick:
                     case LiveEventType.Trace:
-                        if (afkMental != 0 && Player.Mental.GetRate() > afkMental)
+                        if (afkMental != 0 && Player.Mental.Rate > afkMental)
                         {
                             Player.ComboAdd("MISS", currentEvent.Type);
                             if (Player.Mental.CurrentHp == 0)
@@ -164,7 +174,7 @@ namespace DeckMiner.Services
                                     new RuntimeEvent(nextCd, LiveEventType.CDavailable),
                                     nextCd
                                     );
-                                cardNow = d.TopCard();
+                                cardNow = d.TopCard;
                             }
                         }
                         break;
@@ -182,7 +192,7 @@ namespace DeckMiner.Services
                                 new RuntimeEvent(nextCd, LiveEventType.CDavailable),
                                 nextCd
                                 );
-                            cardNow = d.TopCard();
+                            cardNow = d.TopCard;
                         }
                         break;
 

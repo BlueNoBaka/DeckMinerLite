@@ -1,6 +1,7 @@
 using System.Collections;
 using DeckMiner.Data;
 using DeckMiner.Models;
+using TqdmSharp;
 
 namespace DeckMiner.Services
 {
@@ -522,7 +523,9 @@ namespace DeckMiner.Services
             long total = 0;
 
             Parallel.ForEach(
-                dists,
+                Tqdm.Wrap(
+                    dists,
+                    printsPerSecond: 5),
                 () => 0L, // 每个线程的局部计数器
                 (dist, state, localCount) =>
                 {

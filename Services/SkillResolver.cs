@@ -19,7 +19,6 @@ namespace DeckMiner.Services
             { 105, new HashSet<int> { 1051, 1052 } }
         };
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static AttributeType MapEffectToAttribute(CenterAttributeEffectType effectType)
         {
             return effectType switch
@@ -64,7 +63,7 @@ namespace DeckMiner.Services
             }
             TargetType targetType = (TargetType)typeValue;
 
-            bool isSatisfied = false;
+            bool isSatisfied;
 
             // C# 中的 switch 表达式 (或 switch 语句) 替代 Python 的 match/case
             switch (targetType)
@@ -259,7 +258,7 @@ namespace DeckMiner.Services
                     return false;
                 case SkillConditionType.MentalRate:
                     double requiredRate = value / 100.0;
-                    double currentRate = playerAttrs.Mental.GetRate();
+                    double currentRate = playerAttrs.Mental.Rate;
                     if (op == SkillComparisonOperator.ABOVE_OR_EQUAL) return currentRate >= requiredRate;
                     if (op == SkillComparisonOperator.BELOW_OR_EQUAL) return currentRate <= requiredRate;
                     return false;
@@ -546,7 +545,7 @@ namespace DeckMiner.Services
                         break;
 
                     case CenterSkillConditionType.MentalRate:
-                        double currentRate = playerAttrs.Mental.GetRate();
+                        double currentRate = playerAttrs.Mental.Rate;
                         // condition_value 例如 5000 代表 50.00%
                         double requiredRate = conditionValue / 100.0; 
 

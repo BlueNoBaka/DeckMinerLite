@@ -92,7 +92,7 @@ namespace DeckMiner.Data
         }
 
         // 私有辅助方法：执行实际的字符串分割和转换
-        private List<int> ParseIdString(string idString)
+        private static List<int> ParseIdString(string idString)
         {
             if (string.IsNullOrWhiteSpace(idString))
             {
