@@ -1,15 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
 using System.Collections;
-using System.Collections.Concurrent;
-
 using DeckMiner.Data;
 using DeckMiner.Models;
-using DeckMiner.Services;
-using Microsoft.VisualBasic;
-using System.IO.Pipelines;
 
 namespace DeckMiner.Services
 {
@@ -180,7 +171,7 @@ namespace DeckMiner.Services
         int? centerChar;
         HashSet<int> centerCard;
         Dictionary<int, List<int>> charCards = new();
-        HashSet<string> simulated= new();
+        HashSet<string> simulated = new();
 
         public long TotalDecks { get; private set; }
 
@@ -523,17 +514,30 @@ namespace DeckMiner.Services
         // 计算卡组总数
         long ComputeTotalCount()
         {
-            long total = 0;
             var allChars = new List<int>(charCards.Keys);
             if (allChars.Count < 3) return 0;
 
-            foreach (var dist in RoleDistribution.GenerateRoleDistributions(allChars))
-            {
-                if (centerChar.HasValue && Array.IndexOf(dist, centerChar.Value) < 0)
-                    continue;
+            var dists = RoleDistribution.GenerateRoleDistributions(allChars);
 
-                total += CountByDistribution(dist);
-            }
+            long total = 0;
+
+            Parallel.ForEach(
+                dists,
+                () => 0L, // 每个线程的局部计数器
+                (dist, state, localCount) =>
+                {
+                    if (centerChar.HasValue && Array.IndexOf(dist, centerChar.Value) < 0)
+                        return localCount;
+
+                    localCount += CountByDistribution(dist);
+                    return localCount;
+                },
+                localCount =>
+                {
+                    Interlocked.Add(ref total, localCount);
+                }
+            );
+
             return total;
         }
 
