@@ -8,6 +8,8 @@ using System.Collections.Concurrent;
 using DeckMiner.Data;
 using DeckMiner.Models;
 using DeckMiner.Services;
+using Microsoft.VisualBasic;
+using System.IO.Pipelines;
 
 namespace DeckMiner.Services
 {
@@ -178,9 +180,9 @@ namespace DeckMiner.Services
         int? centerChar;
         HashSet<int> centerCard;
         Dictionary<int, List<int>> charCards = new();
-        HashSet<string> simulated;
+        HashSet<string> simulated= new();
 
-        public int TotalDecks { get; private set; }
+        public long TotalDecks { get; private set; }
 
         public DeckGenerator(
             List<int> cardpool,
@@ -193,8 +195,16 @@ namespace DeckMiner.Services
             this.mustcards = mustcards;
             this.centerChar = center_char;
             this.centerCard = center_card;
-            // this.simulated = logPath == null ? new() : SimulatedDeckLoader.Load(logPath);
 
+            try
+            {                
+                var simulatedResult = SimulationBuffer.LoadResultsFromJson(logPath);
+                foreach (var result in simulatedResult)
+                {
+                    simulated.Add(SimulationBuffer.MakeKey(result.DeckCardIds));
+                }
+            }
+            catch (FileNotFoundException){}
             TagGenerator.BuildDBTag();
 
             foreach (int cid in cardpool)
@@ -250,6 +260,7 @@ namespace DeckMiner.Services
         }
 
         // ================== 分发角色 → 枚举卡组 ==================
+        
         IEnumerable<(int[], int?)> GenerateByDistribution(int[] distribution)
         {
             // char -> count
@@ -301,9 +312,9 @@ namespace DeckMiner.Services
 
                 // sort deck to produce its key (used for simulated check etc.)
                 deck.Sort();
-
+                if (simulated.Contains(SimulationBuffer.MakeKey(deck))) continue;
                 if (!CheckMustCards(deck)) continue;
-                if (HasCardConflict(deck)) continue;
+                // if (HasCardConflict(deck)) continue;
 
                 var tags = SkillTagCounter.CountSkillTags(deck);
                 if (!CheckSkillTags(tags)) continue;
@@ -510,9 +521,9 @@ namespace DeckMiner.Services
         }
 
         // 计算卡组总数
-        int ComputeTotalCount()
+        long ComputeTotalCount()
         {
-            int total = 0;
+            long total = 0;
             var allChars = new List<int>(charCards.Keys);
             if (allChars.Count < 3) return 0;
 
