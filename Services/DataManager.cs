@@ -107,7 +107,7 @@ namespace DeckMiner.Services
             if (_skillDb == null)
             {
                 // 只需调用一次通用方法，并传入目标类型和路径
-                _skillDb = LoadDb<SkillDbDictionaryType>("database/RhythmGameSkills.json");
+                _skillDb = LoadDb<SkillDbDictionaryType>("GameData/RhythmGameSkills.json");
             }
             return _skillDb;
         }
@@ -116,7 +116,7 @@ namespace DeckMiner.Services
         {
             if (_centerAttrDb == null)
             {
-                _centerAttrDb = LoadDb<CenterAttrDbDictionaryType>("database/CenterAttributes.json");
+                _centerAttrDb = LoadDb<CenterAttrDbDictionaryType>("GameData/CenterAttributes.json");
             }
             return _centerAttrDb;
         }
@@ -125,7 +125,7 @@ namespace DeckMiner.Services
         {
             if (_centerSkillDb == null)
             {
-                _centerSkillDb = LoadDb<CenterSkillDbDictionaryType>("database/CenterSkills.json");
+                _centerSkillDb = LoadDb<CenterSkillDbDictionaryType>("GameData/CenterSkills.json");
             }
             return _centerSkillDb;
         }
@@ -135,7 +135,7 @@ namespace DeckMiner.Services
             if (_cardDb == null)
             {
                 // 只需调用一次通用方法，并传入目标类型和路径
-                _cardDb = LoadDb<CardDbDictionaryType>("database/CardDatas.json");
+                _cardDb = LoadDb<CardDbDictionaryType>("GameData/CardDatas.json");
             }
             return _cardDb;
         }
@@ -145,7 +145,7 @@ namespace DeckMiner.Services
             if (_musicDb == null)
             {
                 // 只需调用一次通用方法，并传入目标类型和路径
-                _musicDb = LoadDb<MusicDbDictionaryType>("database/Musics.json");
+                _musicDb = LoadDb<MusicDbDictionaryType>("GameData/Musics.json");
             }
             return _musicDb;
         }

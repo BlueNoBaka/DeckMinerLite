@@ -59,4 +59,4 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 
-database/
+GameData/

@@ -18,7 +18,7 @@ class Program
 
     static void Main(string[] args)
     {
-        Console.WriteLine("--- SukuShow Deck Miner ---");
+        Console.WriteLine("--- SukuShow Deck Miner Lite ---");
 
         // ------------------------------------------------------------------
         // 步骤 1: 加载数据库文件
@@ -110,6 +110,8 @@ class Program
             int[] bestDeck = new int[6];
             int? bestCenter = 0;
             List<string> bestLog = new();
+            Exception fatalError = null;
+            string errorContextInfo = string.Empty;
             object lockObject = new();
 
             SimulationBuffer buffer = new(
@@ -119,16 +121,28 @@ class Program
             );
 
             sw2.Start();
-            Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), (deckTuple) =>
+            Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), (deckTuple, state) =>
             {
+                if (state.ShouldExitCurrentIteration || fatalError != null) return;
+
                 var card_id_list = deckTuple.deck;
                 var center_card = deckTuple.center;
 
                 var deckInfo = CardConfig.ConvertDeckToSimulatorFormat(card_id_list.ToList());
                 Deck deckToSimulate = new Deck(deckInfo);
-
-                var newScore = sim2.Run(deckToSimulate, (int)center_card);
-
+                long newScore = -1;
+                try
+                {
+                    newScore = sim2.Run(deckToSimulate, (int)center_card);
+                }
+                catch (Exception ex)
+                {
+                    if (Interlocked.CompareExchange(ref fatalError, ex, null) == null)
+                    {
+                        errorContextInfo = $"卡组: ({string.Join(", ", card_id_list)})\nC位: {center_card}";
+                        state.Stop();
+                    }
+                }
                 buffer.AddResult(card_id_list, center_card, newScore);
 
                 if (newScore > bestScore)
@@ -151,11 +165,34 @@ class Program
             sw2.Stop();
             buffer.FlushFinal();
             buffer.MergeTempFiles();
+            if (fatalError != null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n========== 模拟过程中发生严重错误 ==========");
+                Console.WriteLine(errorContextInfo);
+                Console.WriteLine($"错误详情: {fatalError.Message}");
+                Console.WriteLine($"堆栈追踪: {fatalError.StackTrace}");
+                Console.ResetColor();
+
+                Console.WriteLine("\n按 [Enter] 键退出程序...");
+                Console.ReadLine();
+
+                Environment.Exit(1);
+            }
+            Console.WriteLine($"\n--- 模拟结果 ---");
+            Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
+            Console.WriteLine($"歌曲: {musicDb[MusicId].Title} ({Tier})");
             Console.WriteLine($"最高分: {bestScore:N0}");
             Console.WriteLine($"卡组: ({string.Join(", ", bestDeck)})");
             Console.WriteLine($"C位:   {bestCenter}");
-            Console.WriteLine($"Log:\n{string.Join(" | ", bestLog)}");
-            Console.WriteLine($"模拟 {deckgen.TotalDecks} 个卡组用时: {sw2.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
+            var bestLogStr = string.Join(
+                Environment.NewLine,
+                bestLog
+                    .Select((s, i) => new { s, i })
+                    .GroupBy(x => x.i / 3)
+                    .Select(g => string.Join(" | ", g.Select(x => x.s)))
+            );
+            Console.WriteLine($"Log ({bestLog.Count}):\n{bestLogStr}");
         }
         Console.WriteLine($"\n已完成全部模拟任务，按 [Enter] 退出程序...");
         Console.Read();

@@ -55,6 +55,19 @@ namespace DeckMiner.Models
             TopCard = Queue.First();
         }
 
+        public void ExceptCard(Card card)
+        {
+            if (card == null) return;
+            card.IsExcept = true;
+            var index = Queue.IndexOf(card);
+            if (index != -1)
+            {
+                Queue.RemoveAt(index);
+                if (Queue.Count == 0)
+                    Reset(); 
+            }
+        }
+
         /// <summary>
         /// 获取队列顶部的技能并移除该卡牌。
         /// 对应 Python 的 topskill

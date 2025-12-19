@@ -54,8 +54,8 @@ namespace DeckMiner.Services
 
             // 1. 定义 JSON 文件路径
             string baseDir = AppContext.BaseDirectory;
-            // 假设 Python 预处理后的 JSON 文件放在 database/json/ 目录下
-            string chartJsonPath = Path.Combine(baseDir, "database", "Chart", $"ChartEvents_{musicId}_{tier}.json");
+            // 假设 Python 预处理后的 JSON 文件放在 GameData/json/ 目录下
+            string chartJsonPath = Path.Combine(baseDir, "GameData", "Chart", $"ChartEvents_{musicId}_{tier}.json");
 
             // 2. 实例化服务
             var chartLoader = new ChartLoader();
@@ -84,7 +84,7 @@ namespace DeckMiner.Services
             catch (FileNotFoundException ex)
             {
                 Console.WriteLine($"\n[FATAL ERROR] JSON 文件未找到: {ex.Message}");
-                Console.WriteLine($"请确保 Python 生成的 JSON 文件已复制到输出目录的 database/json 文件夹中。");
+                Console.WriteLine($"请确保 Python 生成的 JSON 文件已复制到输出目录的 GameData/json 文件夹中。");
                 return null;
             }
             catch (Exception ex)

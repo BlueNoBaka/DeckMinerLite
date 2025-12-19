@@ -5,7 +5,7 @@ from datetime import datetime, date
 
 # --- 配置 ---
 INPUT_FILE = Path("D:\Application\Tool\Game\inspix-hailstorm-main\masterdata\Musics.yaml")
-OUTPUT_FILE = Path("database/Musics.json")
+OUTPUT_FILE = Path("GameData/Musics.json")
 # ----------------
 # Custom JSON Encoder
 class DateTimeEncoder(json.JSONEncoder):

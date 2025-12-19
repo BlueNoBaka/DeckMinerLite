@@ -385,14 +385,7 @@ namespace DeckMiner.Services
                     playerAttrs.Deck.Reset(); // 假设 Deck.Reset() 已实现
                     break;
                 case SkillEffectType.CardExcept:
-                    if (card == null) return;
-                    card.IsExcept = true;
-                    // 移除队列中的卡牌逻辑 (Python 逻辑在 C# 中可能需要仔细调整索引)
-                    var indexToRemove = playerAttrs.Deck.Queue.IndexOf(card);
-                    if (indexToRemove != -1)
-                    {
-                        playerAttrs.Deck.Queue.RemoveAt(indexToRemove);
-                    }
+                    playerAttrs.Deck.ExceptCard(card);
                     break;
                 case SkillEffectType.NextAPGainRateChange: // Score Rate Change
                 case SkillEffectType.NextVoltageGainRateChange:
