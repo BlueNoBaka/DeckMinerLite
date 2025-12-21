@@ -36,17 +36,6 @@ namespace DeckMiner.Services
         // -------------------------------------------------------------------
         // I. C位特性目标 (Target Resolution)
         // -------------------------------------------------------------------
-        public static TargetUnit ParseTargetId(string targetId)
-        {
-            // 10101 -> Type 1, Value 0101
-            if (targetId.Length == 5 &&
-                int.TryParse(targetId.AsSpan(0, 1), out int type) &&
-                int.TryParse(targetId.AsSpan(1), out int val))
-            {
-                return new TargetUnit((TargetType)type, val);
-            }
-            return new TargetUnit(TargetType.All, 0); // 默认降级方案
-        }
 
         /// <summary>
         /// 根据ID检查给定条件是否满足。对应 Python 的 CheckTarget。
@@ -102,43 +91,23 @@ namespace DeckMiner.Services
         /// <summary>
         /// 根据EffectsID解析并应用C位特性。对应 Python 的 ApplyCenterAttribute。
         /// </summary>
-        public static void ApplyCenterAttribute(LiveStatus playerAttrs, int effectId, TargetUnit[] targetIds)
+        public static void ApplyCenterAttribute(LiveStatus playerAttrs, CenterAttributeEffectUnit effect, TargetUnit[] targetIds)
         {
-            int enumBaseValue, changeDirection, valueData;
-
-            // 假设 effectId 为 8位 (10000000-99999999) 或 9位 (100000000-999999999)
-            if (effectId >= 10000000 && effectId <= 99999999) // 8位
-            {
-                enumBaseValue = effectId / 10000000;
-                changeDirection = effectId / 1000000 % 10;
-                valueData = effectId % 1000000;
-            }
-            else if (effectId >= 100000000 && effectId <= 999999999) // 9位
-            {
-                enumBaseValue = effectId / 10000000; // 此时解析出前两位
-                changeDirection = effectId / 1000000 % 10;
-                valueData = effectId % 1000000;
-            }
-            else return;
-
-            // 直接转换，不使用 Enum.IsDefined (反射开销太大)
-            CenterAttributeEffectType effectType = (CenterAttributeEffectType)enumBaseValue;
-
-            int changeSign = (changeDirection == 0) ? 1 : -1; // 0=增加/正向, 1=减少/负向
+            var valueData = effect.Value;
             int intChange;
             double doubleChange;
             double multiplier;
-            var targetAttr = MapEffectToAttribute(effectType);
+            var targetAttr = MapEffectToAttribute(effect.Type);
             var cards = playerAttrs.Deck.Cards;
             // C# switch 语句实现效果应用
-            switch (effectType)
+            switch (effect.Type)
             {
                 case CenterAttributeEffectType.SmileRateChange:
                 case CenterAttributeEffectType.PureRateChange:
                 case CenterAttributeEffectType.CoolRateChange:
                 case CenterAttributeEffectType.MentalRateChange:
                     doubleChange = valueData / 10000.0;
-                    multiplier = 1.0 + doubleChange * changeSign;
+                    multiplier = 1.0 + doubleChange;
                     for (int i = 0; i < 6; i++)
                     {
                         var card = cards[i];
@@ -147,13 +116,12 @@ namespace DeckMiner.Services
                     }
                     break;
 
-
                 case CenterAttributeEffectType.SmileValueChange:
                 case CenterAttributeEffectType.PureValueChange:
                 case CenterAttributeEffectType.CoolValueChange:
                 case CenterAttributeEffectType.MentalValueChange:
                 case CenterAttributeEffectType.ConsumeAPChange:
-                    intChange = valueData * changeSign;
+                    intChange = valueData;
                     // 应用数值变化，遍历卡牌并检查目标
                     for (int i = 0; i < 6; i++)
                     {
@@ -164,17 +132,17 @@ namespace DeckMiner.Services
                     break;
 
                 case CenterAttributeEffectType.CoolTimeChange:
-                    doubleChange = valueData / 100.0 * changeSign;
+                    doubleChange = valueData / 100.0;
                     playerAttrs.Cooldown += doubleChange;
                     break;
 
                 case CenterAttributeEffectType.APGainRateChange:
-                    doubleChange = valueData / 10000.0 * changeSign;
+                    doubleChange = valueData / 10000.0;
                     playerAttrs.ApGainRate += doubleChange;
                     break;
 
                 case CenterAttributeEffectType.VoltageGainRateChange:
-                    doubleChange = valueData / 10000.0 * changeSign;
+                    doubleChange = valueData / 10000.0;
                     playerAttrs.VoltageGainRate += doubleChange;
                     break;
 
@@ -190,47 +158,6 @@ namespace DeckMiner.Services
         // -------------------------------------------------------------------
         // III. 普通技能条件检查 (Skill Condition Check)
         // -------------------------------------------------------------------
-
-        // C# 中使用内部结构体/元组存储解析结果，并使用字典或 ConcurrentDictionary 模拟 lru_cache
-        private static readonly ConcurrentDictionary<string, SkillConditionUnit> SkillConditionCache = new();
-
-        /// <summary>
-        /// 解析技能条件ID。对应 Python 的 parse_condition_id。
-        /// </summary>
-        public static SkillConditionUnit ParseSkillConditionId(string conditionId)
-        {
-            // 使用 GetOrAdd 尝试获取或添加结果。
-            // 如果 conditionId 在缓存中，立即返回缓存值 (线程安全)。
-            // 如果不在，则执行后面的 Lambda 表达式 (工厂函数)，然后原子地添加结果。
-
-            // (SkillConditionType Type, SkillComparisonOperator Operator, int Value) 是结果的元组类型
-            return SkillConditionCache.GetOrAdd(
-                conditionId,
-                // 工厂函数: 只有在缓存未命中时才执行
-                (key) =>
-                {
-                    // 原始的解析逻辑
-                    if (key.Length != 7 ||
-                        !int.TryParse(key.Substring(0, 1), out int typeValue) ||
-                        !int.TryParse(key.Substring(1, 1), out int opValue) ||
-                        !int.TryParse(key.Substring(2), out int valueData) ||
-                        !Enum.IsDefined(typeof(SkillConditionType), typeValue) ||
-                        !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
-                    {
-                        // 如果解析失败，缓存一个错误/默认结果，避免再次尝试解析
-                        // (根据你的需求，你可能需要缓存 null 或抛出异常)
-                        // 这里选择缓存一个默认值 (0, 0, 0)
-                        // logger.Error("错误: 无法解析条件ID。");
-                        return new SkillConditionUnit(0, 0, 0);
-                    }
-
-                    var result = new SkillConditionUnit((SkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
-
-                    // GetOrAdd 会自动将 result 添加到 SkillConditionCache 中
-                    return result;
-                }
-            );
-        }
 
         /// <summary>
         /// 根据ID检查给定条件是否满足。对应 Python 的 CheckSkillCondition。
@@ -288,70 +215,23 @@ namespace DeckMiner.Services
         // IV. 普通技能效果应用 (Skill Effect Application)
         // -------------------------------------------------------------------
 
-        // 与条件解析类似，使用缓存结构
-        private static readonly ConcurrentDictionary<int, (SkillEffectType Type, int Usage, int Value, int Direction)> SkillEffectCache = new();
-
-        /// <summary>
-        /// 解析技能效果ID。对应 Python 的 parse_effect_id。
-        /// </summary>
-        private static (SkillEffectType Type, int UsageCount, int ValueData, int ChangeDirection) ParseSkillEffectId(int effectId)
-        {
-            // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
-            return SkillEffectCache.GetOrAdd(
-                effectId,
-                // factory 函数: 只有在缓存未命中时才执行
-                (key) =>
-                {
-                    // --- 原始的解析逻辑 ---
-                    string idStr = key.ToString();
-                    // 长度检查
-                    if (idStr.Length != 9) return (0, 0, 0, 0);
-
-                    // 基本字段解析
-                    if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
-                        !int.TryParse(idStr.Substring(1, 1), out int directionValue) ||
-                        !Enum.IsDefined(typeof(SkillEffectType), typeValue)) return (0, 0, 0, 0);
-
-                    SkillEffectType effectType = (SkillEffectType)typeValue;
-                    int usageCount;
-                    int valueData;
-
-                    // 根据类型进行特殊处理
-                    if (effectType == SkillEffectType.NextAPGainRateChange || effectType == SkillEffectType.NextVoltageGainRateChange)
-                    {
-                        if (!int.TryParse(idStr.Substring(2, 1), out usageCount) ||
-                            !int.TryParse(idStr.Substring(3), out valueData)) return (0, 0, 0, 0);
-                    }
-                    else
-                    {
-                        usageCount = 1;
-                        if (!int.TryParse(idStr.Substring(2), out valueData)) return (0, 0, 0, 0);
-                    }
-
-                    // --- 返回结果 (GetOrAdd 会自动将结果添加到缓存) ---
-                    return (effectType, usageCount, valueData, directionValue);
-                }
-            );
-        }
-
-
         /// <summary>
         /// 根据EffectID解析并应用技能。对应 Python 的 ApplySkillEffect。
         /// </summary>
-        public static void ApplySkillEffect(LiveStatus playerAttrs, int effectId, Card card = null)
+        public static void ApplySkillEffect(LiveStatus playerAttrs, SkillEffectUnit effect, Card card = null)
         {
-            var (effectType, usageCount, valueData, changeDirection) = ParseSkillEffectId(effectId);
-            int changeFactor = (changeDirection == 0) ? 1 : -1;
+            var effectType = effect.Type;
+            var usageCount = effect.UsageCount;
+            var valueData = effect.Value;
 
             switch (effectType)
             {
                 case SkillEffectType.APChange:
-                    double apAmount = valueData * changeFactor / 10000.0;
+                    double apAmount = valueData / 10000.0;
                     playerAttrs.ApAddSkill(apAmount);
                     break;
                 case SkillEffectType.ScoreGain:
                     double scoreRate = 100.0;
-                    // 假设 next_score_gain_rate 是 List<double>
                     if (playerAttrs.NextScoreGainRate.Count != 0)
                     {
                         scoreRate += playerAttrs.NextScoreGainRate.First();
@@ -362,7 +242,7 @@ namespace DeckMiner.Services
                     break;
                 case SkillEffectType.VoltagePointChange:
                     double voltageRate = playerAttrs.VoltageGainRate;
-                    if (changeFactor == 1)
+                    if (valueData > 0)
                     {
                         if (playerAttrs.NextVoltageGainRate.Count != 0)
                         {
@@ -370,16 +250,15 @@ namespace DeckMiner.Services
                             playerAttrs.NextVoltageGainRate.RemoveAt(0);
                         }
                     }
-                    else voltageRate *= changeFactor;
                     int voltageResult = (int)Ceiling(valueData * voltageRate);
                     playerAttrs.Voltage.AddPoints(voltageResult);
                     break;
                 case SkillEffectType.MentalRateChange:
                     double hpPercent = valueData / 100.0;
-                    playerAttrs.Mental.SkillAdd(hpPercent * changeFactor);
+                    playerAttrs.Mental.SkillAdd(hpPercent);
                     break;
                 case SkillEffectType.DeckReset:
-                    playerAttrs.Deck.Reset(); // 假设 Deck.Reset() 已实现
+                    playerAttrs.Deck.Reset();
                     break;
                 case SkillEffectType.CardExcept:
                     playerAttrs.Deck.ExceptCard(card);
@@ -431,44 +310,6 @@ namespace DeckMiner.Services
                     ApplySkillEffect(playerAttrs, effects[i], card);
                 }
             }
-        }
-
-        private static readonly ConcurrentDictionary<string, CenterSkillConditionUnit> CenterSkillConditionCache = new();
-
-        /// <summary>
-        /// 解析C位技能条件ID。
-        /// </summary>
-        public static CenterSkillConditionUnit ParseCenterSkillConditionId(string conditionId)
-        {
-            // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
-            return CenterSkillConditionCache.GetOrAdd(
-                conditionId,
-                // 工厂函数 (Func<string, TValue>): 只有在缓存未命中时才执行
-                (key) =>
-                {
-                    // --- 原始的解析逻辑 ---
-                    if (key.Length != 7 ||
-                        !int.TryParse(key.AsSpan(0, 1), out int typeValue) ||
-                        !int.TryParse(key.AsSpan(1, 1), out int opValue) ||
-                        !int.TryParse(key.AsSpan(2), out int valueData) ||
-                        !Enum.IsDefined(typeof(CenterSkillConditionType), typeValue) ||
-                        !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
-                    {
-                        // 解析失败或格式不符，返回默认值 (该默认值也会被缓存)
-                        return new CenterSkillConditionUnit(0, 0, 0);
-                    }
-
-                    // 构造解析结果
-                    var result = new CenterSkillConditionUnit(
-                        (CenterSkillConditionType)typeValue,
-                        (SkillComparisonOperator)opValue,
-                        valueData
-                        );
-
-                    // GetOrAdd 会自动将 result 添加到缓存中，无需手动调用 Add
-                    return result;
-                }
-            );
         }
 
         /// <summary>
@@ -585,53 +426,14 @@ namespace DeckMiner.Services
             return condition.All(id => CheckCenterSkillCondition(playerAttrs, id, liveEvent));
         }
 
-        private static readonly ConcurrentDictionary<int, (CenterSkillEffectType Type, int Value, int Direction)> CenterSkillEffectCache = new();
-
-        /// <summary>
-        /// 解析技能效果ID。对应 Python 的 parse_effect_id。
-        /// </summary>
-        private static (CenterSkillEffectType Type, int ValueData, int ChangeDirection) ParseCenterSkillEffectId(int effectId)
+        public static void ApplyCenterSkillEffect(LiveStatus playerAttrs, CenterSkillEffectUnit effect)
         {
-            // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
-            return CenterSkillEffectCache.GetOrAdd(
-                effectId,
-                // 工厂函数 (Func<int, TValue>): 只有在缓存未命中时才执行
-                (key) =>
-                {
-                    // --- 原始的解析逻辑 ---
-                    string idStr = key.ToString();
-
-                    // 长度检查
-                    if (idStr.Length != 9) return (0, 0, 0);
-
-                    // 基本字段解析
-                    if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
-                        !int.TryParse(idStr.Substring(1, 1), out int directionValue) ||
-                        !Enum.IsDefined(typeof(CenterSkillEffectType), typeValue)) return (0, 0, 0);
-
-                    CenterSkillEffectType effectType = (CenterSkillEffectType)typeValue;
-
-                    // 解析值数据
-                    if (!int.TryParse(idStr.Substring(2), out int valueData)) return (0, 0, 0);
-
-                    // 构造解析结果
-                    var result = (effectType, valueData, directionValue);
-
-                    // GetOrAdd 会自动将 result 添加到缓存中，无需手动调用 Add
-                    return result;
-                }
-            );
-        }
-
-        public static void ApplyCenterSkillEffect(LiveStatus playerAttrs, int effectId)
-        {
-            var (effectType, valueData, changeDirection) = ParseCenterSkillEffectId(effectId);
-            int changeFactor = (changeDirection == 0) ? 1 : -1;
-
-            switch (effectType)
+            var valueData = effect.Value;
+            
+            switch (effect.Type)
             {
                 case CenterSkillEffectType.APChange:
-                    double apAmount = valueData * changeFactor / 10000.0;
+                    double apAmount = valueData / 10000.0;
                     playerAttrs.ApAddSkill(apAmount);
                     break;
                 case CenterSkillEffectType.ScoreGain:
@@ -647,7 +449,7 @@ namespace DeckMiner.Services
                     break;
                 case CenterSkillEffectType.VoltagePointChange:
                     double voltageRate = playerAttrs.VoltageGainRate;
-                    if (changeFactor == 1)
+                    if (valueData > 0)
                     {
                         if (playerAttrs.NextVoltageGainRate.Count != 0)
                         {
@@ -655,13 +457,12 @@ namespace DeckMiner.Services
                             playerAttrs.NextVoltageGainRate.RemoveAt(0);
                         }
                     }
-                    else voltageRate *= changeFactor;
                     int voltageResult = (int)Ceiling(valueData * voltageRate / 100.0);
                     playerAttrs.Voltage.AddPoints(voltageResult);
                     break;
                 case CenterSkillEffectType.MentalRateChange:
                     double hpPercent = valueData / 100.0;
-                    playerAttrs.Mental.SkillAdd(hpPercent * changeFactor);
+                    playerAttrs.Mental.SkillAdd(hpPercent);
                     break;
                 default:
                     break;

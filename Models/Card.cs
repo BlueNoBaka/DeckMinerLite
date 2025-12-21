@@ -156,7 +156,7 @@ namespace DeckMiner.Models
             return evo;
         }
 
-        public (SkillConditionUnit[][] Condition, int[] Effect) GetSkill()
+        public (SkillConditionUnit[][] Condition, SkillEffectUnit[] Effect) GetSkill()
         {
             ActiveCount++;
             return (SkillUnit.Condition, SkillUnit.Effect);

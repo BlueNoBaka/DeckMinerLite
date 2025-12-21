@@ -17,6 +17,7 @@ namespace DeckMiner.Models
     /// </summary>
     public enum CenterAttributeEffectType
     {
+        UNDEFINED = 0,
         SmileRateChange = 1,
         PureRateChange = 2,
         CoolRateChange = 3,
@@ -60,6 +61,7 @@ namespace DeckMiner.Models
     /// </summary>
     public enum SkillEffectType
     {
+        UNDEFINED = 0,
         APChange = 1,
         ScoreGain = 2,
         VoltagePointChange = 3,
@@ -89,6 +91,7 @@ namespace DeckMiner.Models
     /// </summary>
     public enum CenterSkillEffectType
     {
+        UNDEFINED = 0,
         APChange = 1,
         ScoreGain = 2,
         VoltagePointChange = 3,
