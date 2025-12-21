@@ -12,11 +12,11 @@ namespace DeckMiner.Models
     /// </summary>
     public class Deck
     {
-        public Card[] Cards = new Card[6];
-        public List<Card> Queue { get; private set; } = new List<Card>(6);
+        public readonly Card[] Cards = new Card[6];
+        private int _currentIndex = -1;
         public int Appeal { get; private set; } = 0;
         public List<string> CardLog { get; private set; } = new List<string>();
-        public Card TopCard;
+        public Card TopCard { get; private set; }
 
         // 构造函数
         public Deck(IEnumerable<int> cardIds)
@@ -33,62 +33,76 @@ namespace DeckMiner.Models
 
         // ----------------- 队列管理 -----------------
 
-        /// <summary>
-        /// 重置技能队列 (将所有非除外卡牌加入队列)。
-        /// 对应 Python 的 reset
-        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Reset()
         {
-            Queue.Clear();
-            Queue.AddRange(Cards.Where(card => !card.IsExcept));
-            
-            // 卡组全部除外时的特殊处理
-            if (Queue.Count == 0)
-            {
-                // 确保队列至少有一个占位符或特殊逻辑
-                Queue.Add(null); 
-            }
-            TopCard = Queue[0];
+            // 将指针拨回到起点前一位，利用 MoveToNext 的逻辑寻找第一个有效卡牌
+            _currentIndex = -1; 
+            MoveNext();
         }
 
         public void ExceptCard(Card card)
         {
             if (card == null) return;
             card.IsExcept = true;
-            var index = Queue.IndexOf(card);
-            if (index != -1)
+
+            // 如果被除外的恰好是当前的 TopCard，立刻跳到下一个有效的
+            if (card == TopCard)
             {
-                Queue.RemoveAt(index);
-                if (Queue.Count == 0)
-                    Reset(); 
+                MoveNext();
             }
         }
 
         /// <summary>
-        /// 获取队列顶部的技能并移除该卡牌。
-        /// 对应 Python 的 topskill
+        /// 获取队列顶部卡牌的技能并移除该卡牌。
         /// </summary>
         public Skill TopSkill()
         {
-            if (TopCard == null)
-            {
-                // 队列中只有 null (卡组全被除外)
-                // 抛出异常或返回默认值
-                throw new InvalidOperationException("技能队列为空且卡组中所有卡牌均被除外。");
-            }
+            Card current = TopCard;
+            if (current == null) throw new InvalidOperationException("...");
 
-            CardLog.Add(TopCard.FullName);
-            TopCard.ActiveCount++;
-            var result = TopCard.SkillUnit;
-            Queue.RemoveAt(0);
-            if (Queue.Count == 0)
-                Reset();
-            TopCard = Queue[0];
+            // 1. 逻辑处理
+            CardLog.Add(current.FullName);
+            current.ActiveCount++;
+            Skill result = current.SkillUnit;
+
+            // 2. 索引偏移逻辑（替代 RemoveAt(0) 和 Reset）
+            MoveNext();
 
             return result;
         }
-        
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void MoveNext()
+        {
+            int start = _currentIndex;
+            int len = Cards.Length;
+
+            while (true)
+            {
+                // 循环移动索引
+                _currentIndex = (_currentIndex + 1) % len;
+                
+                // 如果回到了起点，说明转了一圈
+                if (_currentIndex == start)
+                {
+                    // 检查起点这张卡是否也被除外了
+                    if (Cards[_currentIndex].IsExcept)
+                    {
+                        TopCard = null; // 全部被除外
+                        return;
+                    }
+                    break; 
+                }
+
+                // 如果当前卡牌没被除外，这就是我们要的 TopCard
+                if (!Cards[_currentIndex].IsExcept)
+                    break;
+            }
+            
+            TopCard = Cards[_currentIndex];
+        }
+
         // ----------------- 属性计算 -----------------
 
         /// <summary>
