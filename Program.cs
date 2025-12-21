@@ -50,12 +50,9 @@ class Program
 
         CardDataManager.Initialize(cardDb);
         SkillDataManager.Initialize(skillDb, centerAttrDb, centerSkillDb);
+        Card.Initialize();
 
 
-        var levels = ConfigLoader.Config.CardCache[1021701];
-        Console.WriteLine($"{1021701} {levels.CenterSkillLevel}");
-        levels =  ConfigLoader.Config.CardCache[1021702];
-        Console.WriteLine($"1021702 {levels.CardLevel} {levels.CenterSkillLevel} {levels.SkillLevel}");
         // ------------------------------------------------------------------
         // 步骤 2: 读取模拟任务
         // ------------------------------------------------------------------

@@ -36,32 +36,25 @@ namespace DeckMiner.Services
         // -------------------------------------------------------------------
         // I. C位特性目标 (Target Resolution)
         // -------------------------------------------------------------------
+        public static TargetUnit ParseTargetId(string targetId)
+        {
+            // 10101 -> Type 1, Value 0101
+            if (targetId.Length == 5 &&
+                int.TryParse(targetId.AsSpan(0, 1), out int type) &&
+                int.TryParse(targetId.AsSpan(1), out int val))
+            {
+                return new TargetUnit((TargetType)type, val);
+            }
+            return new TargetUnit(TargetType.All, 0); // 默认降级方案
+        }
 
         /// <summary>
         /// 根据ID检查给定条件是否满足。对应 Python 的 CheckTarget。
         /// </summary>
-        public static bool CheckTarget(string targetId, int? charId = null)
+        public static bool CheckTarget(TargetUnit target, int? charId = null)
         {
-            // C# 逻辑与 Python 保持一致，包括长度检查、解析和匹配逻辑
-            if (targetId.Length != 5)
-            {
-                // logger.Error(" 错误: 目标ID长度不符合已知规则...");
-                return false;
-            }
-
-            if (!int.TryParse(targetId.Substring(0, 1), out int typeValue) ||
-                !int.TryParse(targetId.Substring(1), out int targetValue))
-            {
-                // logger.Error(" 错误: 无法解析条件ID...");
-                return false;
-            }
-
-            if (!Enum.IsDefined(typeof(TargetType), typeValue))
-            {
-                // logger.Error(" 未知条件类型...");
-                return false;
-            }
-            TargetType targetType = (TargetType)typeValue;
+            var targetType = target.Type;
+            var targetValue = target.Value;
 
             bool isSatisfied;
 
@@ -95,9 +88,10 @@ namespace DeckMiner.Services
         /// <summary>
         /// 检查多个目标条件中是否任一满足。对应 Python 的 CheckMultiTarget。
         /// </summary>
-        public static bool CheckMultiTarget(List<string> targetIds, int? charId = null)
+        public static bool CheckMultiTarget(TargetUnit[] targetIds, int? charId = null)
         {
-            // Python 的 any 对应 C# 的 Linq.Any
+            if (targetIds.Length == 1)
+                return CheckTarget(targetIds[0], charId);
             return targetIds.Any(id => CheckTarget(id, charId));
         }
 
@@ -108,7 +102,7 @@ namespace DeckMiner.Services
         /// <summary>
         /// 根据EffectsID解析并应用C位特性。对应 Python 的 ApplyCenterAttribute。
         /// </summary>
-        public static void ApplyCenterAttribute(LiveStatus playerAttrs, int effectId, List<string> targetIds)
+        public static void ApplyCenterAttribute(LiveStatus playerAttrs, int effectId, TargetUnit[] targetIds)
         {
             int enumBaseValue, changeDirection, valueData;
 
@@ -178,7 +172,7 @@ namespace DeckMiner.Services
                     doubleChange = valueData / 10000.0 * changeSign;
                     playerAttrs.ApGainRate += doubleChange;
                     break;
-                
+
                 case CenterAttributeEffectType.VoltageGainRateChange:
                     doubleChange = valueData / 10000.0 * changeSign;
                     playerAttrs.VoltageGainRate += doubleChange;
@@ -198,22 +192,22 @@ namespace DeckMiner.Services
         // -------------------------------------------------------------------
 
         // C# 中使用内部结构体/元组存储解析结果，并使用字典或 ConcurrentDictionary 模拟 lru_cache
-        private static readonly ConcurrentDictionary<string, (SkillConditionType Type, SkillComparisonOperator Operator, int Value)> SkillConditionCache = new();
+        private static readonly ConcurrentDictionary<string, SkillConditionUnit> SkillConditionCache = new();
 
         /// <summary>
         /// 解析技能条件ID。对应 Python 的 parse_condition_id。
         /// </summary>
-        private static (SkillConditionType Type, SkillComparisonOperator Operator, int Value) ParseSkillConditionId(string conditionId)
+        public static SkillConditionUnit ParseSkillConditionId(string conditionId)
         {
             // 使用 GetOrAdd 尝试获取或添加结果。
             // 如果 conditionId 在缓存中，立即返回缓存值 (线程安全)。
             // 如果不在，则执行后面的 Lambda 表达式 (工厂函数)，然后原子地添加结果。
-            
+
             // (SkillConditionType Type, SkillComparisonOperator Operator, int Value) 是结果的元组类型
             return SkillConditionCache.GetOrAdd(
-                conditionId, 
+                conditionId,
                 // 工厂函数: 只有在缓存未命中时才执行
-                (key) => 
+                (key) =>
                 {
                     // 原始的解析逻辑
                     if (key.Length != 7 ||
@@ -227,11 +221,11 @@ namespace DeckMiner.Services
                         // (根据你的需求，你可能需要缓存 null 或抛出异常)
                         // 这里选择缓存一个默认值 (0, 0, 0)
                         // logger.Error("错误: 无法解析条件ID。");
-                        return (0, 0, 0); 
+                        return new SkillConditionUnit(0, 0, 0);
                     }
 
-                    var result = ((SkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
-                    
+                    var result = new SkillConditionUnit((SkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
+
                     // GetOrAdd 会自动将 result 添加到 SkillConditionCache 中
                     return result;
                 }
@@ -241,11 +235,13 @@ namespace DeckMiner.Services
         /// <summary>
         /// 根据ID检查给定条件是否满足。对应 Python 的 CheckSkillCondition。
         /// </summary>
-        public static bool CheckSkillCondition(LiveStatus playerAttrs, string conditionId, Card card = null)
+        public static bool CheckSkillCondition(LiveStatus playerAttrs, SkillConditionUnit condition, Card card = null)
         {
-            if (conditionId == "0") return true;
+            if (condition.Type == 0) return true;
 
-            var (conditionType, op, value) = ParseSkillConditionId(conditionId);
+            var conditionType = condition.Type;
+            var op = condition.Operator;
+            var value = condition.Value;
 
             switch (conditionType)
             {
@@ -281,10 +277,11 @@ namespace DeckMiner.Services
         /// <summary>
         /// 检查所有技能条件是否都满足。对应 Python 的 CheckMultiSkillCondition。
         /// </summary>
-        public static bool CheckMultiSkillCondition(LiveStatus playerAttrs, List<string> conditionIds, Card card = null)
+        public static bool CheckMultiSkillCondition(LiveStatus playerAttrs, SkillConditionUnit[] conditions, Card card = null)
         {
-            // Python 的 all 对应 C# 的 Linq.All
-            return conditionIds.All(id => CheckSkillCondition(playerAttrs, id, card));
+            if (conditions.Length == 1)
+                return CheckSkillCondition(playerAttrs, conditions[0], card);
+            return conditions.All(id => CheckSkillCondition(playerAttrs, id, card));
         }
 
         // -------------------------------------------------------------------
@@ -301,14 +298,14 @@ namespace DeckMiner.Services
         {
             // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
             return SkillEffectCache.GetOrAdd(
-                effectId, 
+                effectId,
                 // factory 函数: 只有在缓存未命中时才执行
-                (key) => 
+                (key) =>
                 {
                     // --- 原始的解析逻辑 ---
                     string idStr = key.ToString();
                     // 长度检查
-                    if (idStr.Length != 9) return (0, 0, 0, 0); 
+                    if (idStr.Length != 9) return (0, 0, 0, 0);
 
                     // 基本字段解析
                     if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
@@ -360,7 +357,7 @@ namespace DeckMiner.Services
                         scoreRate += playerAttrs.NextScoreGainRate.First();
                         playerAttrs.NextScoreGainRate.RemoveAt(0);
                     }
-                    double scoreResult = valueData / 1000000.0  * scoreRate;
+                    double scoreResult = valueData / 1000000.0 * scoreRate;
                     playerAttrs.ScoreAdd(scoreResult);
                     break;
                 case SkillEffectType.VoltagePointChange:
@@ -415,15 +412,11 @@ namespace DeckMiner.Services
         /// 统一执行卡牌技能。对应 Python 的 UseCardSkill。
         /// </summary>
         // 注意：effects 是 List<int> (effect IDs), conditions 是 List<List<string>> (multi-conditions)
-        public static void UseCardSkill(LiveStatus playerAttrs, List<int> effects, List<List<string>> conditions, Card card = null)
+        public static void UseCardSkill(LiveStatus playerAttrs, Skill skill, Card card = null)
         {
-            int count = effects.Count;
-            if (effects.Count != conditions.Count)
-            {
-                // logger.Error("技能效果数量与条件列表数量不匹配。");
-                return;
-            }
-
+            var conditions = skill.Condition;
+            var effects = skill.Effect;
+            var count = effects.Length;
             Span<bool> flags = count <= 8 ? stackalloc bool[count] : new bool[count];
 
             for (int i = 0; i < count; i++)
@@ -433,48 +426,51 @@ namespace DeckMiner.Services
 
             for (int i = 0; i < count; i++)
             {
-                if (flags[i]) 
+                if (flags[i])
                 {
                     ApplySkillEffect(playerAttrs, effects[i], card);
                 }
             }
-            // Console.WriteLine($"{playerAttrs}");
         }
 
-        private static readonly ConcurrentDictionary<string, (CenterSkillConditionType Type, SkillComparisonOperator Operator, int Value)> CenterSkillConditionCache = new();
-        
+        private static readonly ConcurrentDictionary<string, CenterSkillConditionUnit> CenterSkillConditionCache = new();
+
         /// <summary>
         /// 解析C位技能条件ID。
         /// </summary>
-        private static (CenterSkillConditionType Type, SkillComparisonOperator Operator, int Value) ParseCenterSkillConditionId(string conditionId)
+        public static CenterSkillConditionUnit ParseCenterSkillConditionId(string conditionId)
         {
             // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
             return CenterSkillConditionCache.GetOrAdd(
-                conditionId, 
+                conditionId,
                 // 工厂函数 (Func<string, TValue>): 只有在缓存未命中时才执行
-                (key) => 
+                (key) =>
                 {
                     // --- 原始的解析逻辑 ---
                     if (key.Length != 7 ||
-                        !int.TryParse(key.Substring(0, 1), out int typeValue) ||
-                        !int.TryParse(key.Substring(1, 1), out int opValue) ||
-                        !int.TryParse(key.Substring(2), out int valueData) ||
+                        !int.TryParse(key.AsSpan(0, 1), out int typeValue) ||
+                        !int.TryParse(key.AsSpan(1, 1), out int opValue) ||
+                        !int.TryParse(key.AsSpan(2), out int valueData) ||
                         !Enum.IsDefined(typeof(CenterSkillConditionType), typeValue) ||
                         !Enum.IsDefined(typeof(SkillComparisonOperator), opValue))
                     {
                         // 解析失败或格式不符，返回默认值 (该默认值也会被缓存)
-                        return (0, 0, 0); 
+                        return new CenterSkillConditionUnit(0, 0, 0);
                     }
 
                     // 构造解析结果
-                    var result = ((CenterSkillConditionType)typeValue, (SkillComparisonOperator)opValue, valueData);
-                    
+                    var result = new CenterSkillConditionUnit(
+                        (CenterSkillConditionType)typeValue,
+                        (SkillComparisonOperator)opValue,
+                        valueData
+                        );
+
                     // GetOrAdd 会自动将 result 添加到缓存中，无需手动调用 Add
                     return result;
                 }
             );
         }
-        
+
         /// <summary>
         /// 根据ID检查给定C位技能条件是否满足。
         /// </summary>
@@ -484,113 +480,110 @@ namespace DeckMiner.Services
         /// <param name="event">当前的Live事件 ("LiveStart", "LiveEnd" 等)。</param>
         /// <returns>如果所有条件满足则返回 True，否则返回 False。</returns>
         public static bool CheckCenterSkillCondition(
-            LiveStatus playerAttrs, 
-            string conditionId, 
+            LiveStatus playerAttrs,
+            CenterSkillConditionUnit condition,
             LiveEventType liveEvent = LiveEventType.Unknown)
         {
-            // C# 中的 switch 表达式/语句不能直接处理字符串作为 case 匹配，
-            // 故使用原始的 if-else if 或 switch 语句 + enum
-
-            string[] conditions = conditionId.Split(',');
             bool result = true;
 
-            foreach (string condition in conditions)
+            var conditionType = condition.Type;
+            var operatorOrFlag = condition.Operator;
+            var conditionValue = condition.Value;
+
+            bool isSatisfied = false;
+
+            // 使用 C# 的 switch 语句，基于枚举进行匹配
+            switch (conditionType)
             {
-                // 所有条件ID（非0）都是7位数字
-                if (condition.Length != 7)
-                {
-                    Console.WriteLine($"\t错误: 条件ID '{condition}' 长度不符合已知规则 (应为7位)。 -> 不满足");
-                    return false;
-                }
+                case CenterSkillConditionType.LiveStart:
+                    isSatisfied = liveEvent == LiveEventType.LiveStart;
+                    break;
 
-                var (conditionType, operatorOrFlag, conditionValue) = ParseCenterSkillConditionId(condition);
+                case CenterSkillConditionType.LiveEnd:
+                    isSatisfied = liveEvent == LiveEventType.LiveEnd;
+                    break;
 
-                bool isSatisfied = false;
+                case CenterSkillConditionType.FeverStart:
+                    isSatisfied = liveEvent == LiveEventType.FeverStart;
+                    break;
 
-                // 使用 C# 的 switch 语句，基于枚举进行匹配
-                switch (conditionType)
-                {
-                    case CenterSkillConditionType.LiveStart:
-                        isSatisfied = liveEvent == LiveEventType.LiveStart;
-                        break;
+                case CenterSkillConditionType.FeverTime:
+                    isSatisfied = playerAttrs.Voltage.IsFever;
+                    break;
 
-                    case CenterSkillConditionType.LiveEnd:
-                        isSatisfied = liveEvent == LiveEventType.LiveEnd;
-                        break;
+                case CenterSkillConditionType.VoltageLevel:
+                    int currentLevel = playerAttrs.Voltage.Level;
+                    if (operatorOrFlag == SkillComparisonOperator.ABOVE_OR_EQUAL) // >=
+                    {
+                        isSatisfied = currentLevel >= conditionValue;
+                    }
+                    else if (operatorOrFlag == SkillComparisonOperator.BELOW_OR_EQUAL) // <= (注意原Python代码注释是 <, 但逻辑是 <=)
+                    {
+                        isSatisfied = currentLevel <= conditionValue;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"\t错误: 未知的 VoltageLevel 运算符 '{condition}'。 -> 不满足");
+                    }
+                    break;
 
-                    case CenterSkillConditionType.FeverStart:
-                        isSatisfied = liveEvent == LiveEventType.FeverStart;
-                        break;
+                case CenterSkillConditionType.MentalRate:
+                    double currentRate = playerAttrs.Mental.Rate;
+                    // condition_value 例如 5000 代表 50.00%
+                    double requiredRate = conditionValue / 100.0;
 
-                    case CenterSkillConditionType.FeverTime:
-                        isSatisfied = playerAttrs.Voltage.IsFever;
-                        break;
+                    if (operatorOrFlag == SkillComparisonOperator.ABOVE_OR_EQUAL) // >=
+                    {
+                        isSatisfied = currentRate >= requiredRate;
+                    }
+                    else if (operatorOrFlag == SkillComparisonOperator.BELOW_OR_EQUAL) // <= (注意原Python代码注释是 <, 但逻辑是 <=)
+                    {
+                        isSatisfied = currentRate <= requiredRate;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"\t错误: 未知的 MentalRate 运算符 '{operatorOrFlag}'。 -> 不满足");
+                    }
+                    break;
 
-                    case CenterSkillConditionType.VoltageLevel:
-                        int currentLevel = playerAttrs.Voltage.Level;
-                        if (operatorOrFlag == SkillComparisonOperator.ABOVE_OR_EQUAL) // >=
-                        {
-                            isSatisfied = currentLevel >= conditionValue;
-                        }
-                        else if (operatorOrFlag == SkillComparisonOperator.BELOW_OR_EQUAL) // <= (注意原Python代码注释是 <, 但逻辑是 <=)
-                        {
-                            isSatisfied = currentLevel <= conditionValue;
-                        }
-                        else
-                        {
-                            Console.WriteLine($"\t错误: 未知的 VoltageLevel 运算符 '{condition}'。 -> 不满足");
-                        }
-                        break;
+                case CenterSkillConditionType.AfterUsedAllSkillCount:
+                    int usedCount = playerAttrs.Deck.UsedAllSkillCalc();
 
-                    case CenterSkillConditionType.MentalRate:
-                        double currentRate = playerAttrs.Mental.Rate;
-                        // condition_value 例如 5000 代表 50.00%
-                        double requiredRate = conditionValue / 100.0; 
+                    if (operatorOrFlag == SkillComparisonOperator.ABOVE_OR_EQUAL) // >=
+                    {
+                        isSatisfied = usedCount >= conditionValue;
+                    }
+                    else if (operatorOrFlag == SkillComparisonOperator.BELOW_OR_EQUAL) // <=
+                    {
+                        isSatisfied = usedCount <= conditionValue;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"\t错误: 未知的 UsedAllSkillCount 运算符 '{operatorOrFlag}'。 -> 不满足");
+                    }
+                    break;
 
-                        if (operatorOrFlag == SkillComparisonOperator.ABOVE_OR_EQUAL) // >=
-                        {
-                            isSatisfied = currentRate >= requiredRate;
-                        }
-                        else if (operatorOrFlag == SkillComparisonOperator.BELOW_OR_EQUAL) // <= (注意原Python代码注释是 <, 但逻辑是 <=)
-                        {
-                            isSatisfied = currentRate <= requiredRate;
-                        }
-                        else
-                        {
-                            Console.WriteLine($"\t错误: 未知的 MentalRate 运算符 '{operatorOrFlag}'。 -> 不满足");
-                        }
-                        break;
-
-                    case CenterSkillConditionType.AfterUsedAllSkillCount:
-                        int usedCount = playerAttrs.Deck.UsedAllSkillCalc();
-
-                        if (operatorOrFlag == SkillComparisonOperator.ABOVE_OR_EQUAL) // >=
-                        {
-                            isSatisfied = usedCount >= conditionValue;
-                        }
-                        else if (operatorOrFlag == SkillComparisonOperator.BELOW_OR_EQUAL) // <=
-                        {
-                            isSatisfied = usedCount <= conditionValue;
-                        }
-                        else
-                        {
-                            Console.WriteLine($"\t错误: 未知的 UsedAllSkillCount 运算符 '{operatorOrFlag}'。 -> 不满足");
-                        }
-                        break;
-
-                    default:
-                        Console.WriteLine($"\t未知条件类型: {conditionType} ({condition})。 -> 不满足");
-                        break;
-                }
-
-                // 只要有一个条件不满足，最终结果就是 False
-                result = result && isSatisfied;
-                if (!result) return false; // 提前退出
+                default:
+                    Console.WriteLine($"\t未知条件类型: {conditionType} ({condition})。 -> 不满足");
+                    break;
             }
+
+            // 只要有一个条件不满足，最终结果就是 False
+            result = result && isSatisfied;
+            if (!result) return false; // 提前退出
 
             return result;
         }
 
+        public static bool CheckMultiCenterSkillCondition(
+            LiveStatus playerAttrs,
+            CenterSkillConditionUnit[] condition,
+            LiveEventType liveEvent = LiveEventType.Unknown)
+        {
+            if (condition.Length == 1)
+                return CheckCenterSkillCondition(playerAttrs, condition[0], liveEvent);
+            return condition.All(id => CheckCenterSkillCondition(playerAttrs, id, liveEvent));
+        }
 
         private static readonly ConcurrentDictionary<int, (CenterSkillEffectType Type, int Value, int Direction)> CenterSkillEffectCache = new();
 
@@ -601,15 +594,15 @@ namespace DeckMiner.Services
         {
             // 使用 GetOrAdd 尝试获取缓存值。如果键不存在，执行后面的 Lambda 表达式。
             return CenterSkillEffectCache.GetOrAdd(
-                effectId, 
+                effectId,
                 // 工厂函数 (Func<int, TValue>): 只有在缓存未命中时才执行
-                (key) => 
+                (key) =>
                 {
                     // --- 原始的解析逻辑 ---
                     string idStr = key.ToString();
-                    
+
                     // 长度检查
-                    if (idStr.Length != 9) return (0, 0, 0); 
+                    if (idStr.Length != 9) return (0, 0, 0);
 
                     // 基本字段解析
                     if (!int.TryParse(idStr.Substring(0, 1), out int typeValue) ||
@@ -623,7 +616,7 @@ namespace DeckMiner.Services
 
                     // 构造解析结果
                     var result = (effectType, valueData, directionValue);
-                    
+
                     // GetOrAdd 会自动将 result 添加到缓存中，无需手动调用 Add
                     return result;
                 }

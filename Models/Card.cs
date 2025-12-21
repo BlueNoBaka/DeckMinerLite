@@ -25,7 +25,7 @@ namespace DeckMiner.Models
     // 静态缓存，存储已创建的 Card 实例（只存储不可变的基础数据）
     // key: card_id
     /// <summary>
-    /// 卡牌类，实现 ICloneable 以支持深拷贝 (替代 Python 的 __copy__)
+    /// 卡牌类，实现 ICloneable 以支持拷贝
     /// </summary>
     public partial class Card : ICloneable
     {
@@ -85,65 +85,35 @@ namespace DeckMiner.Models
 
             string skillIdPart = CardId.Length > 1 ? CardId.Substring(1) : CardId;
             string skillIdStr = $"3{skillIdPart}{evo}";
-            SkillUnit = new Skill(int.Parse(skillIdStr), levels.SkillLevel);
+            SkillUnit = new Skill(skillIdStr, levels.SkillLevel);
             Cost = SkillUnit.Cost;
         }
+
+        public static void Initialize()
+        {
+            var config = ConfigLoader.Config;
+            var allIds = TaskLoader.Task.CardPool;
+
+            // 2. 预先创建所有卡牌实例
+            foreach (var id in allIds)
+            {
+                // 直接从我们之前优化好的 FastLookup 数组拿等级
+                var levels = config.CardCache[id];
+                
+                // 创建“干净”的实例并存入原型位
+                // 这里创建新对象没关系，因为只运行一次
+                CardCache[id] = new Card(id, levels);
+            }
+        }
+
         // ----------------------------------------------------
         // ✅ 静态工厂方法：用于管理缓存和实例创建
         // ----------------------------------------------------
         public static Card GetInstance(
-            int seriesId, 
-            CardLevels levels)
+            int seriesId)
         {
-            // 1. 检查缓存
-            if (CardCache.TryGetValue(seriesId, out Card cachedCard))
-            {
-                // 如果存在，返回它的深拷贝
-                var newCard = (Card)cachedCard.Clone();
-                
-                // 2. 更新等级和状态 (仅针对动态参数)
-                // if (levels != null)
-                // {
-                //     newCard.CardLevel = levels[0];
-                //     // 假设 Skill 类有 SetLevel 方法
-                //     // newCard.SkillUnit.SetLevel(levels[2]); 
-                //     // newCard.CenterSkill.SetLevel(levels[1]); 
-                    
-                //     // 重新计算状态 (注意：现在 _initStatus 不接受 dbCard 参数)
-                //     newCard._initStatus(); 
-                // }
-                
-                return newCard; // ✅ 现在可以在方法中返回对象了
-            }
-
-            // --- 3. 缓存未命中：创建并添加 (使用 GetOrAdd 保证原子性) ---
-        
-            // GetOrAdd 确保：
-            // a) 如果其他线程已添加，则返回已添加的值。
-            // b) 如果不存在，则只调用一次 factory 函数创建新卡牌并添加到缓存。
-            Card instanceToCache = CardCache.GetOrAdd(
-            seriesId, 
-            (key) => {
-                // 这是创建新卡牌的逻辑 (只会执行一次)
-                var newInstance = new Card(seriesId, levels);
-                
-                // 缓存只存储干净的实例，所以我们缓存其 Clone
-                // 注意：这里需要确保 Card 构造函数不会依赖于 levels 来设置初始状态
-                return (Card)newInstance.Clone(); 
-            });
-
-            // 缓存完成后，返回深拷贝的新卡牌实例
-            var finalNewCard = (Card)instanceToCache.Clone();
-            
-            // 重新应用动态等级（因为 GetOrAdd 内部的 factory 可能会使用 null levels）
-            // if (levels != null)
-            // {
-            //     finalNewCard.CardLevel = levels[0];
-            //     // ... (其他等级设置逻辑)
-            //     finalNewCard._initStatus(); 
-            // }
-
-            return finalNewCard;
+            var newCard = (Card)CardCache[seriesId].Clone();
+            return newCard;
         }
         // ----------------- 方法 -----------------
 
@@ -179,25 +149,13 @@ namespace DeckMiner.Models
             return evo;
         }
 
-        public (List<List<string>> Condition, List<int> Effect) GetSkill()
+        public (SkillConditionUnit[][] Condition, int[] Effect) GetSkill()
         {
             ActiveCount++;
             return (SkillUnit.Condition, SkillUnit.Effect);
         }
-
-        public IEnumerable<(List<string> Target, int Effect)> GetCenterAttribute()
-        {
-            return CenterAttribute.Target.Zip(CenterAttribute.Effect, (t, e) => (t, e));
-        }
-
-        public IEnumerable<(string Condition, int Effect)> GetCenterSkill()
-        {
-            return CenterSkill.Condition.Zip(CenterSkill.Effect, (c, e) => (c, e));
-        }
         
         // ----------------- 拷贝和输出 -----------------
-
-        // 实现 ICloneable 接口 (替代 Python 的 __copy__)
         public object Clone()
         {
             // 浅拷贝当前对象

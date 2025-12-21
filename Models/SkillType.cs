@@ -37,6 +37,7 @@ namespace DeckMiner.Models
     /// </summary>
     public enum SkillConditionType
     {
+        AlwaysTrue = 0,
         FeverTime = 1,
         VoltageLevel = 2,
         MentalRate = 3,

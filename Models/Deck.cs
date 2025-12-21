@@ -22,11 +22,10 @@ namespace DeckMiner.Models
         public Deck(IEnumerable<int> cardIds)
         {
             int i = 0;
-            var cache = ConfigLoader.Config.CardCache;
             foreach (var cid in cardIds)
             {
                 if (i >= 6) break;
-                Cards[i] = Card.GetInstance(cid, cache[cid]);
+                Cards[i] = Card.GetInstance(cid);
                 i++;
             }
             Reset();
@@ -50,7 +49,7 @@ namespace DeckMiner.Models
                 // 确保队列至少有一个占位符或特殊逻辑
                 Queue.Add(null); 
             }
-            TopCard = Queue.First();
+            TopCard = Queue[0];
         }
 
         public void ExceptCard(Card card)
@@ -70,7 +69,7 @@ namespace DeckMiner.Models
         /// 获取队列顶部的技能并移除该卡牌。
         /// 对应 Python 的 topskill
         /// </summary>
-        public (List<List<string>> Condition, List<int> Effect) TopSkill()
+        public Skill TopSkill()
         {
             if (TopCard == null)
             {
@@ -80,13 +79,12 @@ namespace DeckMiner.Models
             }
 
             CardLog.Add(TopCard.FullName);
-            var result = TopCard.GetSkill();
+            TopCard.ActiveCount++;
+            var result = TopCard.SkillUnit;
             Queue.RemoveAt(0);
             if (Queue.Count == 0)
-            {
                 Reset();
-            }
-            TopCard = Queue.First();
+            TopCard = Queue[0];
 
             return result;
         }

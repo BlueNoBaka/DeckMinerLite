@@ -106,8 +106,11 @@ namespace DeckMiner.Services
 
             if (CenterCard != null)
             {
-                foreach (var (target, effect) in CenterCard.GetCenterAttribute())
+                var centerAttr = CenterCard.CenterAttribute;
+                for (int i = 0; i < centerAttr.Effect.Length; i++)
                 {
+                    var target = centerAttr.Target[i];
+                    var effect = centerAttr.Effect[i];
                     SkillResolver.ApplyCenterAttribute(Player, effect, target);
                 }
             }
@@ -166,8 +169,8 @@ namespace DeckMiner.Services
                             if (Player.CDAvailable && cardNow != null && Player.Ap >= cardNow.Cost)
                             {
                                 Player.Ap -= cardNow.Cost;
-                                var (condition, effects) = d.TopSkill();
-                                SkillResolver.UseCardSkill(Player, effects, condition, cardNow);
+                                var skill = d.TopSkill();
+                                SkillResolver.UseCardSkill(Player, skill, cardNow);
                                 Player.CDAvailable = false;
                                 var nextCd = currentEvent.Time + Player.Cooldown;
                                 extraEvents.Enqueue(
@@ -184,8 +187,8 @@ namespace DeckMiner.Services
                         if (cardNow != null && Player.Ap >= cardNow.Cost)
                         {
                             Player.Ap -= cardNow.Cost;
-                            var (condition, effects) = d.TopSkill();
-                            SkillResolver.UseCardSkill(Player, effects, condition, cardNow);
+                            var skill = d.TopSkill();
+                            SkillResolver.UseCardSkill(Player, skill, cardNow);
                             Player.CDAvailable = false;
                             var nextCd = currentEvent.Time + Player.Cooldown;
                             extraEvents.Enqueue(
@@ -208,9 +211,12 @@ namespace DeckMiner.Services
                         }
                         if (CenterCard != null)
                         {
-                            foreach (var (condition, effect) in CenterCard.GetCenterSkill())
+                            var centerSkill = CenterCard.CenterSkill;
+                            for (int i = 0; i < centerSkill.Effect.Length; i++)
                             {
-                                if (SkillResolver.CheckCenterSkillCondition(Player, condition, currentEvent.Type))
+                                var condition = centerSkill.Condition[i];
+                                var effect = centerSkill.Effect[i];
+                                if (SkillResolver.CheckMultiCenterSkillCondition(Player, condition, currentEvent.Type))
                                 {
                                     SkillResolver.ApplyCenterSkillEffect(Player, effect);
                                 }
