@@ -47,7 +47,7 @@ namespace DeckMiner.Config
                 // 反序列化：将 JSON 字符串转换为 C# 对象
                 var typeInfo = AppJsonSerializerContext.Default.CardConfig;
                 var config = JsonSerializer.Deserialize(jsonString, typeInfo);
-                
+                config.Initialize();
                 // 确保反序列化成功且不为 null
                 return config ?? new CardConfig(); 
             }

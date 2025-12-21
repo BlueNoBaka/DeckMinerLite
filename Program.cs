@@ -20,6 +20,22 @@ class Program
     {
         Console.WriteLine("--- SukuShow Deck Miner Lite ---");
 
+        string taskPathFromArgs = null;
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--task" && i + 1 < args.Length)
+            {
+                taskPathFromArgs = args[i + 1];
+                break;
+            }
+        }
+
+        // 如果用户传了参数，就初始化，这会覆盖默认的 task.json
+        if (taskPathFromArgs != null)
+        {
+            TaskLoader.Initialize(taskPathFromArgs);
+        }
+
         // ------------------------------------------------------------------
         // 步骤 1: 加载数据库文件
         // ------------------------------------------------------------------
@@ -35,12 +51,16 @@ class Program
         CardDataManager.Initialize(cardDb);
         SkillDataManager.Initialize(skillDb, centerAttrDb, centerSkillDb);
 
+
+        var levels = ConfigLoader.Config.CardCache[1021701];
+        Console.WriteLine($"{1021701} {levels.CenterSkillLevel}");
+        levels =  ConfigLoader.Config.CardCache[1021702];
+        Console.WriteLine($"1021702 {levels.CardLevel} {levels.CenterSkillLevel} {levels.SkillLevel}");
         // ------------------------------------------------------------------
         // 步骤 2: 读取模拟任务
         // ------------------------------------------------------------------
-        var taskConfig = TaskLoader.LoadTasks("task.jsonc");
+        var taskConfig = TaskLoader.Task;
         List<int> globalCardPool = taskConfig.CardPool;
-        
         foreach (var task in taskConfig.Task)
         {
             string MusicId = task.MusicId;
@@ -128,8 +148,7 @@ class Program
                 var card_id_list = deckTuple.deck;
                 var center_card = deckTuple.center;
 
-                var deckInfo = CardConfig.ConvertDeckToSimulatorFormat(card_id_list.ToList());
-                Deck deckToSimulate = new Deck(deckInfo);
+                Deck deckToSimulate = new Deck(card_id_list);
                 long newScore = -1;
                 try
                 {
@@ -139,7 +158,7 @@ class Program
                 {
                     if (Interlocked.CompareExchange(ref fatalError, ex, null) == null)
                     {
-                        errorContextInfo = $"卡组: ({string.Join(", ", card_id_list)})\nC位: {center_card}";
+                        errorContextInfo = $"卡组: ({string.Join(", ", card_id_list)})\nC位:   {center_card}";
                         state.Stop();
                     }
                 }

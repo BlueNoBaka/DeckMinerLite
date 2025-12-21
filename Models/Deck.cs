@@ -2,15 +2,10 @@ using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Linq;
 using static System.Math;
+using DeckMiner.Config;
 
 namespace DeckMiner.Models
 {
-    public readonly struct CardDeckInfo(int id, List<int> levels)
-    {
-        public readonly int CardId = id;
-        public readonly List<int> Levels = levels;
-    }
-
     /// <summary>
     /// 卡组类，管理卡牌队列和总属性。
     /// 对应 Python 的 Deck
@@ -24,12 +19,15 @@ namespace DeckMiner.Models
         public Card TopCard;
 
         // 构造函数
-        public Deck(List<CardDeckInfo> cardInfo) // [Card ID, [LV, CSkillLV, SkillLV]]
+        public Deck(IEnumerable<int> cardIds)
         {
-            for (int i = 0; i < cardInfo.Count; i++)
+            int i = 0;
+            var cache = ConfigLoader.Config.CardCache;
+            foreach (var cid in cardIds)
             {
-                var cardData = cardInfo[i];
-                Cards[i] = Card.GetInstance(cardData.CardId, cardData.Levels);
+                if (i >= 6) break;
+                Cards[i] = Card.GetInstance(cid, cache[cid]);
+                i++;
             }
             Reset();
         }

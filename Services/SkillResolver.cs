@@ -417,21 +417,26 @@ namespace DeckMiner.Services
         // 注意：effects 是 List<int> (effect IDs), conditions 是 List<List<string>> (multi-conditions)
         public static void UseCardSkill(LiveStatus playerAttrs, List<int> effects, List<List<string>> conditions, Card card = null)
         {
+            int count = effects.Count;
             if (effects.Count != conditions.Count)
             {
                 // logger.Error("技能效果数量与条件列表数量不匹配。");
                 return;
             }
 
-            List<bool> flags = [];
+            Span<bool> flags = count <= 8 ? stackalloc bool[count] : new bool[count];
 
-            foreach (var condition in conditions)
+            for (int i = 0; i < count; i++)
             {
-                flags.Add(CheckMultiSkillCondition(playerAttrs, condition, card));
+                flags[i] = CheckMultiSkillCondition(playerAttrs, conditions[i], card);
             }
-            foreach (var (flag, effect) in flags.Zip(effects))
+
+            for (int i = 0; i < count; i++)
             {
-                if (flag) ApplySkillEffect(playerAttrs, effect, card);
+                if (flags[i]) 
+                {
+                    ApplySkillEffect(playerAttrs, effects[i], card);
+                }
             }
             // Console.WriteLine($"{playerAttrs}");
         }

@@ -53,16 +53,8 @@ namespace DeckMiner.Services
                 {
                     if (!limitBreakLookup.TryGetValue((int)result.CenterCard, out int limitBreak))
                     {
-                        if (cardCache.TryGetValue((int)result.CenterCard, out var levels) && levels.Count > 1)
-                        {
-                            // 对应 Python 的 max(levels[1:])
-                            // 假设 levels[0] 是基础等级，[1:] 是各个技能/解放等级
-                            limitBreak = levels.Skip(1).Max();
-                        }
-                        else
-                        {
-                            limitBreak = 14; // 默认值
-                        }
+                        var levels = cardCache[(int)result.CenterCard];
+                        limitBreak = Math.Max(levels.CenterSkillLevel, levels.SkillLevel);
                         limitBreakLookup[(int)result.CenterCard] = limitBreak;
                     }
 

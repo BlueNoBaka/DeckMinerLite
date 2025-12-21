@@ -4,6 +4,7 @@ using System.Linq;
 using static System.Math;
 using System.Collections.Concurrent;
 using DeckMiner.Data;
+using DeckMiner.Config;
 
 namespace DeckMiner.Models
 {
@@ -53,17 +54,14 @@ namespace DeckMiner.Models
 
         // ----------------- 构造函数和缓存 -----------------
         public Card(int seriesId, 
-                    List<int> lvList = null)
+                    CardLevels levels)
         {
-            // 确保 lvList 不为空，设置默认值
-            lvList ??= new List<int> { 140, 14, 14 };
-
             // 访问全局数据库
             var dbCard = CardDataManager.CardDatabase;
 
             // 2. 初始化基本属性
             CardId = seriesId.ToString();
-            CardLevel = lvList[0];
+            CardLevel = levels.CardLevel;
             
             // 数据库查找
 
@@ -83,70 +81,70 @@ namespace DeckMiner.Models
             CenterAttribute = new(centerAttrId);
 
             int centerSkillId = cardDb.CenterSkillSeriesId;
-            CenterSkill = new(centerSkillId, lvList[1]);
+            CenterSkill = new(centerSkillId, levels.CenterSkillLevel);
 
             string skillIdPart = CardId.Length > 1 ? CardId.Substring(1) : CardId;
             string skillIdStr = $"3{skillIdPart}{evo}";
-            SkillUnit = new Skill(int.Parse(skillIdStr), lvList[2]);
+            SkillUnit = new Skill(int.Parse(skillIdStr), levels.SkillLevel);
             Cost = SkillUnit.Cost;
         }
         // ----------------------------------------------------
-    // ✅ 静态工厂方法：用于管理缓存和实例创建
-    // ----------------------------------------------------
-    public static Card GetInstance(
-        int seriesId, 
-        List<int> lvList = null)
-    {
-        // 1. 检查缓存
-        if (CardCache.TryGetValue(seriesId, out Card cachedCard))
+        // ✅ 静态工厂方法：用于管理缓存和实例创建
+        // ----------------------------------------------------
+        public static Card GetInstance(
+            int seriesId, 
+            CardLevels levels)
         {
-            // 如果存在，返回它的深拷贝
-            var newCard = (Card)cachedCard.Clone();
-            
-            // 2. 更新等级和状态 (仅针对动态参数)
-            // if (lvList != null)
-            // {
-            //     newCard.CardLevel = lvList[0];
-            //     // 假设 Skill 类有 SetLevel 方法
-            //     // newCard.SkillUnit.SetLevel(lvList[2]); 
-            //     // newCard.CenterSkill.SetLevel(lvList[1]); 
+            // 1. 检查缓存
+            if (CardCache.TryGetValue(seriesId, out Card cachedCard))
+            {
+                // 如果存在，返回它的深拷贝
+                var newCard = (Card)cachedCard.Clone();
                 
-            //     // 重新计算状态 (注意：现在 _initStatus 不接受 dbCard 参数)
-            //     newCard._initStatus(); 
-            // }
-            
-            return newCard; // ✅ 现在可以在方法中返回对象了
-        }
+                // 2. 更新等级和状态 (仅针对动态参数)
+                // if (levels != null)
+                // {
+                //     newCard.CardLevel = levels[0];
+                //     // 假设 Skill 类有 SetLevel 方法
+                //     // newCard.SkillUnit.SetLevel(levels[2]); 
+                //     // newCard.CenterSkill.SetLevel(levels[1]); 
+                    
+                //     // 重新计算状态 (注意：现在 _initStatus 不接受 dbCard 参数)
+                //     newCard._initStatus(); 
+                // }
+                
+                return newCard; // ✅ 现在可以在方法中返回对象了
+            }
 
-        // --- 3. 缓存未命中：创建并添加 (使用 GetOrAdd 保证原子性) ---
-    
-        // GetOrAdd 确保：
-        // a) 如果其他线程已添加，则返回已添加的值。
-        // b) 如果不存在，则只调用一次 factory 函数创建新卡牌并添加到缓存。
-        Card instanceToCache = CardCache.GetOrAdd(
-        seriesId, 
-        (key) => {
-            // 这是创建新卡牌的逻辑 (只会执行一次)
-            var newInstance = new Card(seriesId, lvList);
-            
-            // 缓存只存储干净的实例，所以我们缓存其 Clone
-            // 注意：这里需要确保 Card 构造函数不会依赖于 lvList 来设置初始状态
-            return (Card)newInstance.Clone(); 
-        });
-
-        // 缓存完成后，返回深拷贝的新卡牌实例
-        var finalNewCard = (Card)instanceToCache.Clone();
+            // --- 3. 缓存未命中：创建并添加 (使用 GetOrAdd 保证原子性) ---
         
-        // 重新应用动态等级（因为 GetOrAdd 内部的 factory 可能会使用 null lvList）
-        // if (lvList != null)
-        // {
-        //     finalNewCard.CardLevel = lvList[0];
-        //     // ... (其他等级设置逻辑)
-        //     finalNewCard._initStatus(); 
-        // }
+            // GetOrAdd 确保：
+            // a) 如果其他线程已添加，则返回已添加的值。
+            // b) 如果不存在，则只调用一次 factory 函数创建新卡牌并添加到缓存。
+            Card instanceToCache = CardCache.GetOrAdd(
+            seriesId, 
+            (key) => {
+                // 这是创建新卡牌的逻辑 (只会执行一次)
+                var newInstance = new Card(seriesId, levels);
+                
+                // 缓存只存储干净的实例，所以我们缓存其 Clone
+                // 注意：这里需要确保 Card 构造函数不会依赖于 levels 来设置初始状态
+                return (Card)newInstance.Clone(); 
+            });
 
-        return finalNewCard;
-    }
+            // 缓存完成后，返回深拷贝的新卡牌实例
+            var finalNewCard = (Card)instanceToCache.Clone();
+            
+            // 重新应用动态等级（因为 GetOrAdd 内部的 factory 可能会使用 null levels）
+            // if (levels != null)
+            // {
+            //     finalNewCard.CardLevel = levels[0];
+            //     // ... (其他等级设置逻辑)
+            //     finalNewCard._initStatus(); 
+            // }
+
+            return finalNewCard;
+        }
         // ----------------- 方法 -----------------
 
         /// <summary>

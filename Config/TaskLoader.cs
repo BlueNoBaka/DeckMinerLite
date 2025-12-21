@@ -28,17 +28,65 @@ namespace DeckMiner.Config
 
     public static class TaskLoader
     {
-        public static TaskConfig LoadTasks(string filePath)
+        private static TaskConfig _taskInstance;
+        // 默认路径，如果启动参数没给，就用这个
+        private static string _currentFilePath = Path.Combine(AppContext.BaseDirectory, "task.jsonc");
+
+        /// <summary>
+        /// 直接通过 TaskLoader.Task 访问配置
+        /// </summary>
+        public static TaskConfig Task
         {
+            get
+            {
+                // 如果还没加载，或者被显式清空了，执行首次加载
+                if (_taskInstance == null)
+                {
+                    _taskInstance = InternalLoad();
+                }
+                return _taskInstance;
+            }
+        }
+
+        /// <summary>
+        /// 提供给外部（如 Main 函数解析启动参数后）显式设置路径并立即加载
+        /// </summary>
+        public static void Initialize(string filePath)
+        {
+            if (!string.IsNullOrWhiteSpace(filePath))
+            {
+                if (!File.Exists(_currentFilePath))
+                    _currentFilePath = filePath;
+                else
+                    Console.WriteLine($"警告: 任务配置文件 '{_currentFilePath}' 不存在，使用默认配置文件 'task.jsonc'。");
+            }
+            // 显式调用时强制重新加载，确保路径生效
+            _taskInstance = InternalLoad();
+        }
+
+        private static TaskConfig InternalLoad()
+        {
+            if (!File.Exists(_currentFilePath))
+            {
+                Console.WriteLine($"警告: 默认配置文件 '{_currentFilePath}' 不存在。");
+                return new TaskConfig();
+            }
+
             try
             {
-                string jsonString = File.ReadAllText(filePath);
+                string jsonString = File.ReadAllText(_currentFilePath);
                 var typeInfo = AppJsonSerializerContext.Default.TaskConfig;
-                return JsonSerializer.Deserialize(jsonString, typeInfo) ?? new TaskConfig();
+
+                var task = JsonSerializer.Deserialize(jsonString, typeInfo);
+
+                // 如果 TaskConfig 也有 Initialize 逻辑（如前面讨论的预解析），在此调用
+                // task?.Initialize(); 
+
+                return task ?? new TaskConfig();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"加载配置文件失败: {ex.Message}");
+                Console.Error.WriteLine($"加载任务配置失败 ({_currentFilePath}): {ex.Message}");
                 return new TaskConfig();
             }
         }
