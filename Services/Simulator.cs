@@ -38,18 +38,18 @@ namespace DeckMiner.Services
         public static RuntimeEvent[] PrepareRuntimeEvents(ChartData chart)
         {
             var runtimeEvents = new List<RuntimeEvent>(chart.Events.Count);
-            
+
             foreach (var ev in chart.Events)
             {
                 var type = ev.Name switch
                 {
                     "Single" => LiveEventType.Single,
-                    "Hold"   => LiveEventType.Hold,
-                    "HoldMid"   => LiveEventType.HoldMid,
-                    "Flick"  => LiveEventType.Flick,
-                    "Trace"  => LiveEventType.Trace,
-                    "LiveStart"  => LiveEventType.LiveStart,
-                    "LiveEnd"    => LiveEventType.LiveEnd,
+                    "Hold" => LiveEventType.Hold,
+                    "HoldMid" => LiveEventType.HoldMid,
+                    "Flick" => LiveEventType.Flick,
+                    "Trace" => LiveEventType.Trace,
+                    "LiveStart" => LiveEventType.LiveStart,
+                    "LiveEnd" => LiveEventType.LiveEnd,
                     "FeverStart" => LiveEventType.FeverStart,
                     "FeverEnd" => LiveEventType.FeverEnd,
                     _ => LiveEventType.Unknown
@@ -60,7 +60,7 @@ namespace DeckMiner.Services
                     runtimeEvents.Add(new RuntimeEvent(ev.Time, type));
                 }
             }
-            
+
             return runtimeEvents.ToArray(); // 转为数组，遍历速度最快
         }
     }
@@ -72,6 +72,8 @@ namespace DeckMiner.Services
         public MusicDbData Music;
         public int MasterLv;
         public CardConfig Config;
+        private static readonly ThreadLocal<LiveStatus> _playerPool =
+        new ThreadLocal<LiveStatus>(() => new LiveStatus());
 
         public Simulator(string musicId, string tier, int masterLv = 50)
         {
@@ -81,27 +83,28 @@ namespace DeckMiner.Services
             MasterLv = masterLv;
             Config = ConfigLoader.Config;
         }
-        
+
 
         public long Run(Deck d, int centerCardId)
         {
             Card CenterCard = null;
-            LiveStatus Player = new(MasterLv);
+            var Player = _playerPool.Value;
+            Player.Reset();
             Player.SetDeck(d);
 
             double afkMental = 0.0;
 
             foreach (Card c in d.Cards)
             {
-                int cid = int.Parse(c.CardId);
-                
-                if (Config.DeathNote.TryGetValue(cid, out double hpThreshold))
+                if (c.AfkThreshold > 0)
                 {
-                    if (afkMental > 0) afkMental = Math.Min(afkMental, hpThreshold);
-                    else afkMental = hpThreshold;
+                    if (afkMental > 0)
+                        afkMental = Math.Min(afkMental, c.AfkThreshold);
+                    else
+                        afkMental = c.AfkThreshold;
                 }
-                
-                if (cid == centerCardId) CenterCard = c;
+
+                if (c.CardId == centerCardId) CenterCard = c;
             }
 
             if (CenterCard != null)

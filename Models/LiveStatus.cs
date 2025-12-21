@@ -31,13 +31,40 @@ namespace DeckMiner.Models
         public Deck Deck { get; private set; } // 假设 Deck 类已定义
         public int MasterLv { get; private set; } = masterLv;
         private double _baseScore;
-        private Dictionary<string, double> _noteScore = new Dictionary<string, double>();
+        private readonly Dictionary<string, double> _noteScore = new Dictionary<string, double>();
         private double _halfApPlus;
         private double _fullApPlus;
         private int _prevVo = -1;
         private int _prevNoteScore = 0;
         private double _prevApRate = 0.0;
         private double _prevAp = 0.0;
+
+        public void Reset()
+        {
+            Ap = 0.0;
+            Cooldown = 5.0;
+            ApRate = 1.0;
+            Combo = 0;
+            Score = 0;
+            CDAvailable = false;
+            ApGainRate = 1.0;
+            VoltageGainRate = 1.0;
+            // MasterLv = 50;  // 模拟过程中不变
+            
+            // Mental.SetHp(100);  // 每次模拟都会重新 HpCalc
+            Voltage.SetPoints(0);
+
+            NextScoreGainRate.Clear();
+            NextVoltageGainRate.Clear();
+            _noteScore.Clear();
+
+            _prevVo = -1;
+            _prevNoteScore = 0;
+            _prevApRate = 0.0;
+            _prevAp = 0.0;
+            // _baseScore 等可以在 SetDeck 时重新计算
+
+        }
 
         public void SetDeck(Deck deck)
         {

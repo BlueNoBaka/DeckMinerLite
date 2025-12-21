@@ -32,7 +32,7 @@ namespace DeckMiner.Models
         private static readonly ConcurrentDictionary<int, Card> CardCache = new();
 
         // ----------------- 属性 -----------------
-        public string CardId { get; private set; }
+        public int CardId { get; private set; }
         public string FullName { get; private set; }
         public int CharactersId { get; private set; }
         public int CardLevel { get; private set; }
@@ -51,6 +51,7 @@ namespace DeckMiner.Models
         public int Cost { get; private set; }
         public int ActiveCount { get; set; } = 0;
         public bool IsExcept { get; set; } = false; // 是否被除外
+        public double AfkThreshold { get; set; } = -1.0;
 
         // ----------------- 构造函数和缓存 -----------------
         public Card(int seriesId, 
@@ -60,14 +61,15 @@ namespace DeckMiner.Models
             var dbCard = CardDataManager.CardDatabase;
 
             // 2. 初始化基本属性
-            CardId = seriesId.ToString();
+            CardId = seriesId;
+            string CardIdStr = CardId.ToString();
             CardLevel = levels.CardLevel;
             
             // 数据库查找
 
-            if (!dbCard.TryGetValue(CardId, out var cardDb))
+            if (!dbCard.TryGetValue(CardIdStr, out var cardDb))
             {
-                throw new KeyNotFoundException($"Card ID {CardId} not found in CardDbData.");
+                throw new KeyNotFoundException($"Card ID {CardIdStr} not found in CardDbData.");
             }
 
             FullName = $"[{cardDb.Name}] {cardDb.Description}".Replace('\u00A0', ' '); 
@@ -83,10 +85,15 @@ namespace DeckMiner.Models
             int centerSkillId = cardDb.CenterSkillSeriesId;
             CenterSkill = new(centerSkillId, levels.CenterSkillLevel);
 
-            string skillIdPart = CardId.Length > 1 ? CardId.Substring(1) : CardId;
+            string skillIdPart = CardIdStr.Length > 1 ? CardIdStr.Substring(1) : CardIdStr;
             string skillIdStr = $"3{skillIdPart}{evo}";
             SkillUnit = new Skill(skillIdStr, levels.SkillLevel);
             Cost = SkillUnit.Cost;
+
+            if (ConfigLoader.Config.DeathNote.TryGetValue(CardId, out var afkMental))
+            {
+                AfkThreshold = afkMental;
+            }
         }
 
         public static void Initialize()
@@ -99,7 +106,7 @@ namespace DeckMiner.Models
             {
                 // 直接从我们之前优化好的 FastLookup 数组拿等级
                 var levels = config.CardCache[id];
-                
+
                 // 创建“干净”的实例并存入原型位
                 // 这里创建新对象没关系，因为只运行一次
                 CardCache[id] = new Card(id, levels);
@@ -123,7 +130,7 @@ namespace DeckMiner.Models
         /// </summary>
         private int InitStatus()
         {
-            var cardDb = CardDataManager.CardDatabase[CardId];
+            var cardDb = CardDataManager.CardDatabase[CardId.ToString()];
             
             // 1. 获取稀有度
             Rarity rarity = (Rarity)cardDb.Rarity;
