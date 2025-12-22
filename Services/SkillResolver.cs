@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
 using static System.Math;
 using DeckMiner.Data;
 using DeckMiner.Models;

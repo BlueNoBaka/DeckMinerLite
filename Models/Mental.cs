@@ -37,12 +37,12 @@ namespace DeckMiner.Models
             _traceMinus = 20 + (int)(MaxHp * 0.02);
         }
 
-        public void Sub(string judgement, LiveEventType noteType = LiveEventType.Unknown)
+        public void Sub(NoteJudgement judgement, LiveEventType noteType = LiveEventType.Unknown)
         {
             int damage = judgement switch
             {
-                "BAD" => _badMinus,
-                "MISS" => noteType == LiveEventType.Trace || noteType == LiveEventType.HoldMid ? _traceMinus : _missMinus,
+                NoteJudgement.Bad => _badMinus,
+                NoteJudgement.Miss => noteType == LiveEventType.Trace || noteType == LiveEventType.HoldMid ? _traceMinus : _missMinus,
                 _ => 0
             };
 

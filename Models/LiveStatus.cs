@@ -31,13 +31,14 @@ namespace DeckMiner.Models
         public Deck Deck { get; private set; } // 假设 Deck 类已定义
         public int MasterLv { get; private set; } = masterLv;
         private double _baseScore;
-        private readonly Dictionary<string, double> _noteScore = new Dictionary<string, double>();
+        private readonly Dictionary<NoteJudgement, double> _noteScore = new Dictionary<NoteJudgement, double>();
         private double _halfApPlus;
         private double _fullApPlus;
         private int _prevVo = -1;
         private int _prevNoteScore = 0;
         private double _prevApRate = 0.0;
         private double _prevAp = 0.0;
+        public PriorityQueue<RuntimeEvent, double> ExtraEvents { get; } = new(8);
 
         public void Reset()
         {
@@ -57,6 +58,7 @@ namespace DeckMiner.Models
             NextScoreGainRate.Clear();
             NextVoltageGainRate.Clear();
             _noteScore.Clear();
+            ExtraEvents.Clear();
 
             _prevVo = -1;
             _prevNoteScore = 0;
@@ -87,12 +89,12 @@ namespace DeckMiner.Models
 
             // 计算每个判定的基础分数
             double noteBase = _baseScore / allNoteSize;
-            _noteScore["PERFECT+"] = 35.0 * noteBase;
-            _noteScore["PERFECT"] = 30.0 * noteBase;
-            _noteScore["GREAT"] = 25.0 * noteBase;
-            _noteScore["GOOD"] = 15.0 * noteBase;
-            _noteScore["BAD"] = 5.0 * noteBase;
-            _noteScore["MISS"] = 0.0;
+            _noteScore[NoteJudgement.PerfectPlus] = 35.0 * noteBase;
+            _noteScore[NoteJudgement.Perfect] = 30.0 * noteBase;
+            _noteScore[NoteJudgement.Great] = 25.0 * noteBase;
+            _noteScore[NoteJudgement.Good] = 15.0 * noteBase;
+            _noteScore[NoteJudgement.Bad] = 5.0 * noteBase;
+            _noteScore[NoteJudgement.Miss] = 0.0;
 
             // AP 恢复点数
             _halfApPlus = 300000.0 / allNoteSize;
@@ -111,11 +113,11 @@ namespace DeckMiner.Models
             return result;
         }
 
-        public void ScoreNote(string judgement)
+        public void ScoreNote(NoteJudgement judgement)
         {
             if (_noteScore.TryGetValue(judgement, out double scoreValue))
             {
-                if (judgement == "PERFECT+")
+                if (judgement == NoteJudgement.PerfectPlus)
                 {
                     if (_prevVo == Voltage.Level)
                     {
@@ -131,13 +133,13 @@ namespace DeckMiner.Models
             }
         }
 
-        public void ComboAdd(string judgement, LiveEventType noteType = LiveEventType.Unknown)
+        public void ComboAdd(NoteJudgement judgement, LiveEventType noteType = LiveEventType.Unknown)
         {
             switch (judgement)
             {
-                case "PERFECT+":
-                case "PERFECT":
-                case "GREAT":
+                case NoteJudgement.PerfectPlus:
+                case NoteJudgement.Perfect:
+                case NoteJudgement.Great:
                     Combo++;
                     if (Combo <= 50)
                     {
@@ -152,7 +154,7 @@ namespace DeckMiner.Models
                     Ap += _prevAp;
                     break;
 
-                case "GOOD":
+                case NoteJudgement.Good:
                     Combo++;
                     if (Combo <= 50)
                     {
@@ -162,15 +164,15 @@ namespace DeckMiner.Models
                     Ap += Ceiling(_halfApPlus * ApRate) / 10000.0;
                     break;
 
-                case "BAD":
-                case "MISS":
+                case NoteJudgement.Bad:
+                case NoteJudgement.Miss:
                     Combo = 0;
                     ApRate = 1.0;
 
                     // 按判定扣血
                     Mental.Sub(judgement, noteType);
 
-                    if (judgement == "MISS")
+                    if (judgement == NoteJudgement.Miss)
                     {
                         // MISS 不加分，直接返回
                         return;
@@ -205,5 +207,16 @@ namespace DeckMiner.Models
                 $"电加成: {string.Join(", ", NextVoltageGainRate)}\t"
             );
         }
+    }
+
+    public enum NoteJudgement
+    {
+        None = -1,
+        Miss = 0,
+        Bad = 1,
+        Good = 2,
+        Great = 3,
+        Perfect = 4,
+        PerfectPlus =5
     }
 }
