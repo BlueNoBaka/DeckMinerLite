@@ -58,6 +58,17 @@ namespace DeckMiner.Services
         }
     }
 
+    public class SimulatorContext
+    {
+        public readonly LiveStatus Player;
+
+        public SimulatorContext(LiveStatus player)
+        {
+            // 这里的 new 只在线程启动时执行一次
+            Player = player; 
+        }
+    }
+
     public class Simulator
     {
         public ChartData Chart;
@@ -65,9 +76,6 @@ namespace DeckMiner.Services
         public MusicDbData Music;
         public int MasterLv;
         public CardConfig Config;
-        private static readonly ThreadLocal<LiveStatus> _playerPool =
-            new ThreadLocal<LiveStatus>(() => new LiveStatus());
-        
         // private static readonly double[] MissTiming = new double[Enum.GetValues<LiveEventType>().Length];
 
         public Simulator(string musicId, string tier, int masterLv = 50)
@@ -85,13 +93,13 @@ namespace DeckMiner.Services
         }
 
 
-        public long Run(Deck d, int centerCardId)
+        public long Run(SimulatorContext context, int centerCardId)
         {
             Card CenterCard = null;
             // bool hasHanabiGinko = false;
-            var Player = _playerPool.Value;
+            var Player = context.Player;
+            var d = context.Player.Deck;
             Player.Reset();
-            Player.SetDeck(d);
 
             double afkMental = 0.0;
 

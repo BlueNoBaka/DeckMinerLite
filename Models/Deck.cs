@@ -31,6 +31,19 @@ namespace DeckMiner.Models
             Reset();
         }
 
+        public Deck(){}
+
+        public void UpdateCards(int[] cardIds)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                Cards[i] = Card.GetInstance(cardIds[i]); 
+            }
+            // 更新后必须执行重置逻辑
+            CardLog.Clear();
+            Reset();
+        }
+
         // ----------------- 队列管理 -----------------
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

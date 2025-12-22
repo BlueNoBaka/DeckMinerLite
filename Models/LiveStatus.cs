@@ -28,7 +28,7 @@ namespace DeckMiner.Models
         public bool CDAvailable { get; set; } = false;
 
         // Deck 相关的计算属性
-        public Deck Deck { get; private set; } // 假设 Deck 类已定义
+        public Deck Deck { get; private set; }
         public int MasterLv { get; private set; } = masterLv;
         private double _baseScore;
         private readonly Dictionary<NoteJudgement, double> _noteScore = new Dictionary<NoteJudgement, double>();

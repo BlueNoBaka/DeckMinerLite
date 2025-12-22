@@ -138,18 +138,26 @@ class Program
             );
 
             sw2.Start();
-            Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), (deckTuple, state) =>
+            Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), 
+            () =>
             {
-                if (state.ShouldExitCurrentIteration || fatalError != null) return;
+                var deck = new Deck();
+                var player = new LiveStatus(task.MLv);
+                player.SetDeck(deck);
+                return new SimulatorContext(player);
+            },
+            (deckTuple, state, context) =>
+            {
+                if (state.ShouldExitCurrentIteration || fatalError != null) return context;
 
                 var card_id_list = deckTuple.deck;
                 var center_card = deckTuple.center;
 
-                Deck deckToSimulate = new Deck(card_id_list);
+                context.Player.Deck.UpdateCards(card_id_list);
                 long newScore = -1;
                 try
                 {
-                    newScore = sim2.Run(deckToSimulate, (int)center_card);
+                    newScore = sim2.Run(context, (int)center_card);
                 }
                 catch (Exception ex)
                 {
@@ -170,14 +178,17 @@ class Program
                             bestScore = newScore;
                             bestDeck = card_id_list;
                             bestCenter = center_card;
-                            bestLog = deckToSimulate.CardLog;
+                            bestLog = context.Player.Deck.CardLog;
                             Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
                             Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
                             Console.WriteLine($"  Center: {center_card}");
                         }
                     }
                 }
-            });
+                return context;
+            },
+            (finalContext) => {}
+            );
             sw2.Stop();
             buffer.FlushFinal();
             buffer.MergeTempFiles();
