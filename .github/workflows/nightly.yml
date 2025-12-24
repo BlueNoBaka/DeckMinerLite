@@ -1,0 +1,66 @@
+name: Nightly Build (NativeAOT)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v5
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Publish NativeAOT
+      run: dotnet publish -c Release -r win-x64 -o ./publish
+
+    - name: Zip Artifact
+      run: 7z a -tzip DeckMinerLite-Windows-Nightly.zip ./publish/*
+
+    - name: Upload to Actions
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifact
+        path: DeckMinerLite-Windows-Nightly.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifact
+
+    - name: Update Nightly Tag
+      uses: dev-drprasad/delete-tag-and-release@v1.1
+      with:
+        delete_release: true
+        tag_name: nightly
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Nightly Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: nightly
+        name: "Nightly Build (Bleeding Edge)"
+        body: |
+          这是自动生成的最新构建版本。
+          编译时间: ${{ github.event.head_commit.timestamp }}
+          提交哈希: ${{ github.sha }}
+        prerelease: true
+        files: DeckMinerLite-Windows-Nightly.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
