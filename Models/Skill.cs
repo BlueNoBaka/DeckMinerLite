@@ -44,7 +44,7 @@ namespace DeckMiner.Models
         public Skill(string seriesId, int lv = 14)
         {
             // 对应 self.skill_id = str(series_id * 100 + lv)
-            SkillId = $"{seriesId}{lv}";
+            SkillId = $"{seriesId}{lv:D2}";
 
             var db = SkillDataManager.SkillDatabase;
 
