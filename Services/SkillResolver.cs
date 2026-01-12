@@ -236,7 +236,7 @@ namespace DeckMiner.Services
                         scoreRate += playerAttrs.NextScoreGainRate.First();
                         playerAttrs.NextScoreGainRate.RemoveAt(0);
                     }
-                    double scoreResult = valueData / 1000000.0 * scoreRate;
+                    double scoreResult = valueData * scoreRate / 1000000.0;
                     playerAttrs.ScoreAdd(scoreResult);
                     break;
                 case SkillEffectType.VoltagePointChange:
@@ -452,11 +452,11 @@ namespace DeckMiner.Services
                     {
                         if (playerAttrs.NextVoltageGainRate.Count != 0)
                         {
-                            voltageRate += playerAttrs.NextVoltageGainRate.First();
+                            voltageRate += playerAttrs.NextVoltageGainRate.First() / 100.0;
                             playerAttrs.NextVoltageGainRate.RemoveAt(0);
                         }
                     }
-                    int voltageResult = (int)Ceiling(valueData * voltageRate / 100.0);
+                    int voltageResult = (int)Ceiling(valueData * voltageRate);
                     playerAttrs.Voltage.AddPoints(voltageResult);
                     break;
                 case CenterSkillEffectType.MentalRateChange:
