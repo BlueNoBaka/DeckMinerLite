@@ -228,23 +228,23 @@ namespace DeckMiner.Services
             try 
             {
                 // 2. 执行保存 (计算 PT 并写入磁盘)
-                SaveSimulationResults(finalMap.Values.ToList(), finalPath, calcPt: true);
-                
-                // 3. 保存成功后，删除临时文件
-                foreach (string file in files)
+                if (SaveSimulationResults(finalMap.Values.ToList(), finalPath, calcPt: true))
                 {
-                    try
+                    // 3. 保存成功后，删除临时文件
+                    foreach (string file in files)
                     {
-                        File.Delete(file);
+                        try
+                        {
+                            File.Delete(file);
+                        }
+                        catch (IOException ex)
+                        {
+                            // 有时文件可能被其他进程占用，记录警告但不中断程序
+                            Console.WriteLine($"无法删除临时文件 {file}: {ex.Message}");
+                        }
                     }
-                    catch (IOException ex)
-                    {
-                        // 有时文件可能被其他进程占用，记录警告但不中断程序
-                        Console.WriteLine($"无法删除临时文件 {file}: {ex.Message}");
-                    }
+                    Console.WriteLine($"合并完成，已清理 {files.Length} 个临时文件。");
                 }
-                
-                Console.WriteLine($"合并完成，已清理 {files.Length} 个临时文件。");
             }
             catch (Exception ex)
             {
@@ -262,7 +262,7 @@ namespace DeckMiner.Services
         /// <param name="resultsData">包含每个卡组及其得分的 SimulationResult 列表。</param>
         /// <param name="filename">保存 JSON 文件的路径。</param>
         /// <param name="calcPt">是否计算并排序 PT 值。</param>
-        public static void SaveSimulationResults(
+        public static bool SaveSimulationResults(
             List<SimulationResult> resultsData,
             string filename = DefaultLogPath,
             bool calcPt = false)
@@ -312,25 +312,24 @@ namespace DeckMiner.Services
             // ----------------------------------------------------
             try
             {
-                // 确保目录存在
                 string directory = Path.GetDirectoryName(filename);
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
 
+                using FileStream fs = File.Create(filename);
                 var typeInfo = AppJsonSerializerContext.Default.ListSimulationResult;
-                string outputJson = JsonSerializer.Serialize(processedResults, typeInfo);
 
-                // 写入文件
-                File.WriteAllText(filename, outputJson);
-
+                JsonSerializer.Serialize(fs, processedResults, typeInfo);
                 Console.WriteLine($"模拟结果已保存到 {filename}");
             }
             catch (Exception e)
             {
                 Console.WriteLine($"错误: 写入模拟结果到 JSON 文件失败: {e.Message}");
+                return false;
             }
+            return true;
         }
         
         public static List<SimulationResult> LoadResultsFromJson(string jsonPath)
