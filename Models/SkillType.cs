@@ -71,7 +71,7 @@ namespace DeckMiner.Models
         NextAPGainRateChange = 7, // 实际效果为NextScoreGainRateChange
         NextVoltageGainRateChange = 8
     }
-    
+
     /// <summary>
     /// C位技能触发条件类型枚举。
     /// </summary>
@@ -85,7 +85,7 @@ namespace DeckMiner.Models
         MentalRate = 6,
         AfterUsedAllSkillCount = 7
     }
-    
+
     /// <summary>
     /// 卡牌C位技能效果类型枚举。
     /// </summary>

@@ -68,9 +68,9 @@ namespace DeckMiner.Data
             if (_skillDatabase != null)
             {
                 // 避免重复初始化
-                return; 
+                return;
             }
-            
+
             _skillDatabase = skillDb;
             _centerAttrDatabase = centerAttrDb;
             _centerSkillDatabase = centerSkillDb;

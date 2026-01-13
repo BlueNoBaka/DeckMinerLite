@@ -30,12 +30,14 @@ namespace DeckMiner.Config
         };
 
         // 默认技能等级
-        public int DefaultSkillLevel { get; set; } = 14; 
+        public int DefaultSkillLevel { get; set; } = 14;
         public int DefaultCenterSkillLevel { get; set; } = 14;
 
         [JsonPropertyName("CardCache")]
         public Dictionary<int, CardLevels> RawCardCache { get; set; } = new();
-        
+
+        public Dictionary<int, CardLevels> FriendCache { get; set; } = new();
+
         [JsonIgnore]
         public ConcurrentDictionary<int, CardLevels> CardCache { get; private set; }
 

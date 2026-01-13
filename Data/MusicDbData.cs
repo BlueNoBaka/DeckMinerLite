@@ -18,11 +18,11 @@ namespace DeckMiner.Data
         public int GenerationsId { get; set; }
         public int UnitId { get; set; }
         public int CenterCharacterId { get; set; }
-        
+
         // 注意：SingerCharacterId 和 SupportCharacterId 在 JSON 中是逗号分隔的字符串
-        public string SingerCharacterId { get; set; } 
+        public string SingerCharacterId { get; set; }
         public string SupportCharacterId { get; set; }
-        
+
         // 私有缓存字段：用于存储计算后的 List<int>
         private List<int> _singerCharactersCache = null;
         private List<int> _supportCharactersCache = null;
@@ -36,7 +36,7 @@ namespace DeckMiner.Data
         public int PlayTime { get; set; }
         public int FeverSectionNo { get; set; }
         public int MaxAp { get; set; }
-        
+
         // 预览时间（单位：毫秒）
         public int PreviewStartTime { get; set; }
         public int PreviewEndTime { get; set; }
@@ -47,7 +47,7 @@ namespace DeckMiner.Data
         public int ReleaseConditionType { get; set; }
         public int ReleaseConditionDetail { get; set; }
         public string ReleaseConditionText { get; set; }
-        
+
         // 视频模式和背景
         public int IsVideoMode { get; set; }
         public int VideoBgId { get; set; }
@@ -63,7 +63,7 @@ namespace DeckMiner.Data
         // =======================================================
         // 新增的计算属性 (Computed Properties)
         // =======================================================
-        
+
         public List<int> SingerCharacters
         {
             get
@@ -78,7 +78,7 @@ namespace DeckMiner.Data
                 return _singerCharactersCache;
             }
         }
-        
+
         public List<int> SupportCharacters
         {
             get

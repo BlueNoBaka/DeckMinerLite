@@ -10,7 +10,7 @@ namespace DeckMiner.Models
         public int CurrentHp { get; private set; }
         public int MaxHp { get; private set; }
         public double Rate { get; private set; }
-        
+
         private int _badMinus;
         private int _missMinus;
         private int _traceMinus;
@@ -30,7 +30,7 @@ namespace DeckMiner.Models
         {
             MaxHp = hp;
             CurrentHp = MaxHp;
-            
+
             // 计算扣血值：int(self.max_hp * 0.0X)
             _badMinus = 30 + (int)(MaxHp * 0.03);
             _missMinus = 50 + (int)(MaxHp * 0.05);
@@ -61,7 +61,7 @@ namespace DeckMiner.Models
             Rate = MaxHp == 0 ? 0.0 : CurrentHp * 100.0 / MaxHp;
         }
 
-        public override string ToString() => 
+        public override string ToString() =>
             $"Mental: {CurrentHp} / {MaxHp} ({Rate:F2}%)";
     }
 }

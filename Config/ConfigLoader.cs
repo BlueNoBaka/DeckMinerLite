@@ -28,7 +28,7 @@ namespace DeckMiner.Config
         {
             // 获取配置文件在应用程序目录下的完整路径
             string configPath = Path.Combine(
-                AppContext.BaseDirectory, 
+                AppContext.BaseDirectory,
                 ConfigFileName
             );
 
@@ -49,7 +49,7 @@ namespace DeckMiner.Config
                 var config = JsonSerializer.Deserialize(jsonString, typeInfo);
                 config.Initialize();
                 // 确保反序列化成功且不为 null
-                return config ?? new CardConfig(); 
+                return config ?? new CardConfig();
             }
             catch (Exception ex)
             {

@@ -61,11 +61,10 @@ namespace DeckMiner.Services
     public class SimulatorContext
     {
         public readonly LiveStatus Player;
-
         public SimulatorContext(LiveStatus player)
         {
             // 这里的 new 只在线程启动时执行一次
-            Player = player; 
+            Player = player;
         }
     }
 
@@ -101,9 +100,12 @@ namespace DeckMiner.Services
             Player.Reset();
 
             double afkMental = 0.0;
+            bool centerFriend = d.Cards[6].CharactersId == centerCardId / 1000;
+            // 暗坑: 未指定C位卡牌时，助战卡的C位技能也无法生效
 
-            foreach (Card c in d.Cards)
+            for (int i = 0; i < 6; i++)
             {
+                Card c = d.Cards[i];
                 if (c.AfkThreshold > 0)
                 {
                     if (afkMental > 0)
@@ -195,6 +197,20 @@ namespace DeckMiner.Services
                                     }
                                 }
                             }
+                            if (centerFriend)
+                            {
+                                var centerSkill = d.Cards[6].CenterSkill;
+                                for (int i = 0; i < centerSkill.Effect.Length; i++)
+                                {
+                                    var condition = centerSkill.Condition[i];
+                                    var effect = centerSkill.Effect[i];
+                                    if (SkillResolver.CheckMultiCenterSkillCondition(Player, condition, currentEvent.Type))
+                                    {
+                                        SkillResolver.ApplyCenterSkillEffect(Player, effect);
+                                    }
+                                }
+                            }
+
                             break;
                         case LiveEventType.FeverEnd:
                             Player.Voltage.SetFever(false);
@@ -207,16 +223,14 @@ namespace DeckMiner.Services
                 else
                 {
                     currentEvent = extraEvents.Dequeue();
-                    switch (currentEvent.Type)
+                    if (currentEvent.Type == LiveEventType.CDavailable)
                     {
-                        case LiveEventType.CDavailable:
-                            Player.CDAvailable = true;
-                            TryUseSkill(Player, d, ref cardNow, currentEvent.Time, extraEvents);
-                            break;
-
-                        default:
-                            Console.WriteLine($"未处理的事件: {currentEvent.Time}, {currentEvent.Type}");
-                            break;
+                        Player.CDAvailable = true;
+                        TryUseSkill(Player, d, ref cardNow, currentEvent.Time, extraEvents);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"未处理的事件: {currentEvent.Time}, {currentEvent.Type}");
                     }
                 }
             }
@@ -225,9 +239,9 @@ namespace DeckMiner.Services
             return Player.Score;
 
             static void TryUseSkill(
-                LiveStatus p, 
-                Deck d, 
-                ref Card cardNow, 
+                LiveStatus p,
+                Deck d,
+                ref Card cardNow,
                 double currentTime,
                 PriorityQueue<RuntimeEvent, double> extraEvents
                 )
@@ -257,9 +271,11 @@ namespace DeckMiner.Services
             Player.Reset();
 
             double afkMental = 0.0;
+            bool centerFriend = d.Cards[6].CharactersId == centerCardId / 1000;
 
-            foreach (Card c in d.Cards)
+            for (int i = 0; i < 6; i++)
             {
+                Card c = d.Cards[i];
                 if (c.AfkThreshold > 0)
                 {
                     if (afkMental > 0)
@@ -363,6 +379,19 @@ namespace DeckMiner.Services
                                     }
                                 }
                             }
+                            if (centerFriend)
+                            {
+                                var centerSkill = d.Cards[6].CenterSkill;
+                                for (int i = 0; i < centerSkill.Effect.Length; i++)
+                                {
+                                    var condition = centerSkill.Condition[i];
+                                    var effect = centerSkill.Effect[i];
+                                    if (SkillResolver.CheckMultiCenterSkillCondition(Player, condition, currentEvent.Type))
+                                    {
+                                        SkillResolver.ApplyCenterSkillEffect(Player, effect);
+                                    }
+                                }
+                            }
                             break;
                         case LiveEventType.FeverEnd:
                             Player.Voltage.SetFever(false);
@@ -414,9 +443,9 @@ namespace DeckMiner.Services
             return Player.Score;
 
             static void TryUseSkill(
-                LiveStatus p, 
-                Deck d, 
-                ref Card cardNow, 
+                LiveStatus p,
+                Deck d,
+                ref Card cardNow,
                 double currentTime,
                 PriorityQueue<RuntimeEvent, double> extraEvents
                 )

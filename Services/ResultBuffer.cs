@@ -12,10 +12,13 @@ namespace DeckMiner.Services
     public class SimulationResult
     {
         [JsonPropertyName("deck_card_ids")]
-        public List<int> DeckCardIds { get; set; } = new();
+        public int[] DeckCardIds { get; set; }
 
         [JsonPropertyName("center_card")]
-        public int? CenterCard { get; set; }
+        public int CenterCard { get; set; }
+
+        [JsonPropertyName("friend_card")]
+        public int FriendCard { get; set; }
 
         [JsonPropertyName("score")]
         public long Score { get; set; }
@@ -43,19 +46,19 @@ namespace DeckMiner.Services
         public static List<SimulationResult> ScoreToPt(List<SimulationResult> results)
         {
             double sflBonus = 6.6;
-            var cardCache =  ConfigLoader.Config.CardCache;
+            var cardCache = ConfigLoader.Config.CardCache;
             var limitBreakLookup = new Dictionary<int, int>();
 
             foreach (var result in results)
             {
-                double relBonus = 1.4;
-                if (result.CenterCard != null)
+                double relBonus = 1.0;
+                if (result.CenterCard != 0)
                 {
-                    if (!limitBreakLookup.TryGetValue((int)result.CenterCard, out int limitBreak))
+                    if (!limitBreakLookup.TryGetValue(result.CenterCard, out int limitBreak))
                     {
-                        var levels = cardCache[(int)result.CenterCard];
+                        var levels = cardCache[result.CenterCard];
                         limitBreak = Math.Max(levels.CenterSkillLevel, levels.SkillLevel);
-                        limitBreakLookup[(int)result.CenterCard] = limitBreak;
+                        limitBreakLookup[result.CenterCard] = limitBreak;
                     }
 
                     // 获取对应的加成系数
@@ -101,7 +104,7 @@ namespace DeckMiner.Services
         /// <summary>
         /// 将结果写入容器，如果该卡组已存在，则保留得分更高的版本
         /// </summary>
-        public void AddResult(int[] cardIds, int? center, long score)
+        public void AddResult(int[] cardIds, int center, int friend, long score)
         {
             string key = MakeKey(cardIds);
 
@@ -109,17 +112,19 @@ namespace DeckMiner.Services
                 key,
                 (_) => new SimulationResult
                 {
-                    DeckCardIds = cardIds.ToList(),
+                    DeckCardIds = cardIds,
                     CenterCard = center,
+                    FriendCard = friend,
                     Score = score
                 },
                 (_, existing) =>
                 {
                     if (score > existing.Score)
                     {
-                        existing.DeckCardIds = cardIds.ToList();
-                        existing.Score = score;
+                        existing.DeckCardIds = cardIds;
                         existing.CenterCard = center;
+                        existing.FriendCard = friend;
+                        existing.Score = score;
                     }
                     return existing;
                 }
@@ -158,7 +163,7 @@ namespace DeckMiner.Services
             int batchId = Interlocked.Increment(ref _batchNo);
 
             string path = Path.Combine(
-                _tempDir, 
+                _tempDir,
                 $"temp_{_musicId}_{_tier}_{batchId:D3}.json"
             );
 
@@ -209,7 +214,7 @@ namespace DeckMiner.Services
             }
 
             string[] files = Directory.GetFiles(_tempDir, $"temp_{_musicId}_{_tier}_*.json");
-            
+
             if (files.Length == 0) return;
 
             foreach (string file in files)
@@ -225,7 +230,7 @@ namespace DeckMiner.Services
                 }
             }
 
-            try 
+            try
             {
                 // 2. 执行保存 (计算 PT 并写入磁盘)
                 if (SaveSimulationResults(finalMap.Values.ToList(), finalPath, calcPt: true))
@@ -250,7 +255,7 @@ namespace DeckMiner.Services
             {
                 // 如果保存失败，不要删除 temp 文件，方便人工恢复数据
                 Console.WriteLine($"合并保存失败，临时文件已保留。错误: {ex.Message}");
-                throw; 
+                throw;
             }
         }
 
@@ -279,7 +284,7 @@ namespace DeckMiner.Services
                 // 必须使用排序后的 key 来识别唯一的卡组组合
                 string sortedCardIdsKey = MakeKey(result.DeckCardIds);
 
-                if (!uniqueDecksBestScores.TryGetValue(sortedCardIdsKey, out var bestResult) || 
+                if (!uniqueDecksBestScores.TryGetValue(sortedCardIdsKey, out var bestResult) ||
                     result.Score > bestResult.Score)
                 {
                     // 如果是新的卡组组合，或找到了更高的分数，则更新
@@ -331,7 +336,7 @@ namespace DeckMiner.Services
             }
             return true;
         }
-        
+
         public static List<SimulationResult> LoadResultsFromJson(string jsonPath)
         {
             if (!File.Exists(jsonPath))
@@ -347,10 +352,10 @@ namespace DeckMiner.Services
                 // 2. AOT 兼容的反序列化
                 // 获取 ChartData 类型的 TypeInfo
                 var typeInfo = AppJsonSerializerContext.Default.ListSimulationResult;
-                
+
                 // 进行反序列化
                 var result = JsonSerializer.Deserialize(jsonString, typeInfo);
-                
+
                 if (result == null)
                 {
                     throw new JsonException("JSON 反序列化失败，返回 null。数据格式可能不匹配。");

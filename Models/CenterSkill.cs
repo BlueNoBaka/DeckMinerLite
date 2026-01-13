@@ -139,10 +139,10 @@ namespace DeckMiner.Models
                     // 基本字段解析
                     if (!int.TryParse(idStr.AsSpan(0, 1), out int typeValue) ||
                         !int.TryParse(idStr.AsSpan(1, 1), out int directionValue) ||
-                        !Enum.IsDefined(typeof(CenterSkillEffectType), typeValue)) 
+                        !Enum.IsDefined(typeof(CenterSkillEffectType), typeValue))
                         return new CenterSkillEffectUnit(0, 0);
 
-                    if (!int.TryParse(idStr.AsSpan(2), out int valueData)) 
+                    if (!int.TryParse(idStr.AsSpan(2), out int valueData))
                         return new CenterSkillEffectUnit(0, 0);
 
                     valueData *= (directionValue == 0) ? 1 : -1;

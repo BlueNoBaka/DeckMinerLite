@@ -27,10 +27,10 @@ namespace DeckMiner.Services
                 // 2. AOT 兼容的反序列化
                 // 获取 ChartData 类型的 TypeInfo
                 var typeInfo = AppJsonSerializerContext.Default.ChartData;
-                
+
                 // 进行反序列化
                 var chart = (ChartData)JsonSerializer.Deserialize(jsonString, typeInfo);
-                
+
                 if (chart == null)
                 {
                     throw new JsonException("JSON 反序列化失败，返回 null。数据格式可能不匹配。");
@@ -68,7 +68,7 @@ namespace DeckMiner.Services
                 // --- 结果输出 ---
                 Console.WriteLine($"[谱面信息]");
                 Console.WriteLine($"  Note数: {chart.AllNoteSize}");
-                
+
                 var liveEnd = chart.Events.FirstOrDefault(e => e.Name == "LiveEnd");
                 Console.WriteLine($"  歌曲时长: {liveEnd?.Time:F3}s");
                 var feverStart = chart.Events.FirstOrDefault(e => e.Name == "FeverStart");
@@ -77,7 +77,7 @@ namespace DeckMiner.Services
                 Console.WriteLine($"  Fever结束: {feverEnd?.Time:F3}s");
 
                 Console.WriteLine("-----------------------------------------------------");
-                
+
                 // 此时，chart.Events 就是您的模拟器可以直接使用的有序事件列表。
                 return chart;
             }

@@ -8,7 +8,7 @@ namespace DeckMiner.Models
         private static readonly ConcurrentDictionary<int, int> _levelPointsCache = new ConcurrentDictionary<int, int>();
 
         private int _currentPoints;
-        private int _currentLevel; 
+        private int _currentLevel;
 
         // 公共属性
         public int Level { get; private set; }
@@ -32,7 +32,7 @@ namespace DeckMiner.Models
         {
             if (level <= 0) return 0;
 
-            return _levelPointsCache.GetOrAdd(level, (lvl) => 
+            return _levelPointsCache.GetOrAdd(level, (lvl) =>
             {
                 if (lvl <= 20)
                 {
@@ -42,7 +42,7 @@ namespace DeckMiner.Models
                 else
                 {
                     // 公式：2100 + (lvl - 20) * 200
-                    return lvl * 200 - 1900; 
+                    return lvl * 200 - 1900;
                 }
             });
         }
@@ -110,7 +110,7 @@ namespace DeckMiner.Models
             IsFever = value;
             UpdateLevel();
         }
-        
+
         // 简化版的 ToString()
         public override string ToString() => $"Voltage: {_currentPoints} Pt (Lv.{Level})";
     }

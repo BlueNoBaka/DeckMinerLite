@@ -37,7 +37,7 @@ namespace DeckMiner.Data
             if (_cardDatabase != null)
             {
                 // 避免重复初始化
-                return; 
+                return;
             }
             _cardDatabase = dbCard;
         }

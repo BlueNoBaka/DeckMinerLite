@@ -12,14 +12,14 @@ namespace DeckMiner.Models
     /// </summary>
     public class Deck
     {
-        public readonly Card[] Cards = new Card[6];
+        public readonly Card[] Cards = new Card[7];
         private int _currentIndex = -1;
         public int Appeal { get; private set; } = 0;
         public List<string> CardLog { get; private set; } = new List<string>();
         public Card TopCard { get; private set; }
 
         // 构造函数
-        public Deck(IEnumerable<int> cardIds)
+        public Deck(IEnumerable<int> cardIds, int friendId = 0)
         {
             int i = 0;
             foreach (var cid in cardIds)
@@ -28,17 +28,19 @@ namespace DeckMiner.Models
                 Cards[i] = Card.GetInstance(cid);
                 i++;
             }
+            Cards[6] = Card.GetFriend(friendId);
             Reset();
         }
 
-        public Deck(){}
+        public Deck() { }
 
-        public void UpdateCards(int[] cardIds)
+        public void UpdateCards(int[] cardIds, int friendId = 0)
         {
             for (int i = 0; i < 6; i++)
             {
-                Cards[i] = Card.GetInstance(cardIds[i]); 
+                Cards[i] = Card.GetInstance(cardIds[i]);
             }
+            Cards[6] = Card.GetFriend(friendId);
             // 更新后必须执行重置逻辑
             CardLog.Clear();
             Reset();
@@ -50,7 +52,7 @@ namespace DeckMiner.Models
         public void Reset()
         {
             // 将指针拨回到起点前一位，利用 MoveToNext 的逻辑寻找第一个有效卡牌
-            _currentIndex = -1; 
+            _currentIndex = -1;
             MoveNext();
         }
 
@@ -89,13 +91,13 @@ namespace DeckMiner.Models
         private void MoveNext()
         {
             int start = _currentIndex;
-            int len = Cards.Length;
+            const int len = 6;
 
             while (true)
             {
                 // 循环移动索引
                 _currentIndex = (_currentIndex + 1) % len;
-                
+
                 // 如果回到了起点，说明转了一圈
                 if (_currentIndex == start)
                 {
@@ -105,14 +107,14 @@ namespace DeckMiner.Models
                         TopCard = null; // 全部被除外
                         return;
                     }
-                    break; 
+                    break;
                 }
 
                 // 如果当前卡牌没被除外，这就是我们要的 TopCard
                 if (!Cards[_currentIndex].IsExcept)
                     break;
             }
-            
+
             TopCard = Cards[_currentIndex];
         }
 

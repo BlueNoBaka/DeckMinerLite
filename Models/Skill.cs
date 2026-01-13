@@ -35,6 +35,13 @@ namespace DeckMiner.Models
         public readonly SkillConditionUnit[][] Condition;
         public readonly SkillEffectUnit[] Effect;
 
+        public Skill()
+        {
+            SkillId = "0";
+            Cost = 0;
+            Condition = [];
+            Effect = [];
+        }
         /// <summary>
         /// Skill 构造函数：初始化卡牌的激活技能。
         /// </summary>
@@ -64,7 +71,7 @@ namespace DeckMiner.Models
             var rawEffectIds = skillData.RhythmGameSkillEffectId;
             Condition = new SkillConditionUnit[rawConditionIds.Count][];
             Effect = new SkillEffectUnit[rawEffectIds.Count];
-            
+
             for (int i = 0; i < rawConditionIds.Count; i++)
             {
                 string[] ids = rawConditionIds[i].Split(',');
@@ -138,7 +145,7 @@ namespace DeckMiner.Models
                     // 基本字段解析
                     if (!int.TryParse(idStr.AsSpan(0, 1), out int typeValue) ||
                         !int.TryParse(idStr.AsSpan(1, 1), out int directionValue) ||
-                        !Enum.IsDefined(typeof(SkillEffectType), typeValue)) 
+                        !Enum.IsDefined(typeof(SkillEffectType), typeValue))
                         return new SkillEffectUnit(0, 0, 0);
 
                     SkillEffectType effectType = (SkillEffectType)typeValue;
@@ -149,14 +156,14 @@ namespace DeckMiner.Models
                     if (effectType == SkillEffectType.NextAPGainRateChange || effectType == SkillEffectType.NextVoltageGainRateChange)
                     {
                         if (!int.TryParse(idStr.AsSpan(2, 1), out usageCount) ||
-                            !int.TryParse(idStr.AsSpan(3), out valueData)) 
+                            !int.TryParse(idStr.AsSpan(3), out valueData))
                             return new SkillEffectUnit(0, 0, 0);
                     }
                     else
                     {
                         usageCount = 1;
                         if (!int.TryParse(idStr.AsSpan(2), out valueData))
-                        return new SkillEffectUnit(0, 0, 0);
+                            return new SkillEffectUnit(0, 0, 0);
                     }
                     valueData *= (directionValue == 0) ? 1 : -1;
                     // --- 返回结果 (GetOrAdd 会自动将结果添加到缓存) ---

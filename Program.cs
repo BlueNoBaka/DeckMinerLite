@@ -56,6 +56,15 @@ class Program
         // ------------------------------------------------------------------
         // 步骤 2: 读取模拟任务
         // ------------------------------------------------------------------
+        // Simulator SimTest = new("405129", "02");
+        // Deck d = new([1041513, 1033531, 1021701, 1022702, 1023702, 1031533], 1031519);
+        // LiveStatus p = new(50);
+        // p.SetDeck(d);
+        // var c = new SimulatorContext(p);
+
+        // SimTest.Run(c, 1031533);
+        // Console.WriteLine(p);
+        // return;
         var taskConfig = TaskLoader.Task;
         List<int> globalCardPool = taskConfig.CardPool;
         foreach (var task in taskConfig.Task)
@@ -68,7 +77,7 @@ class Program
             List<int> excludeCards = task.ExcludeCards;
             List<int> secondaryCenter = task.SecondaryCenter;
             List<List<int>> mustcards = [task.MustCards.All, task.MustCards.Any, task.MustSkills];
-            
+
             int centerChar = musicDb[MusicId].CenterCharacterId;
 
             HashSet<int> cardIdsSet = new(globalCardPool);
@@ -80,7 +89,7 @@ class Program
             foreach (int card in cardIdsSet)
                 if (card / 1000 == centerChar)
                 {
-                    var rarity = card / 100 % 10; 
+                    var rarity = card / 100 % 10;
                     if (rarity == 7 || rarity == 8)
                         primaryCenter.Add(card);
                     else
@@ -92,7 +101,7 @@ class Program
                     primaryCenter.Add(card);
 
             HashSet<int> availableCenter;
-            if (primaryCenter.Count > 0) 
+            if (primaryCenter.Count > 0)
                 availableCenter = primaryCenter;
             else
                 availableCenter = otherCenter;
@@ -104,6 +113,19 @@ class Program
                 Console.WriteLine("无可用的C位卡牌");
             }
 
+            HashSet<int> availableFriend = new(task.Friend);
+            if (availableFriend.Count > 0)
+            {
+                Console.WriteLine($"可用助战卡牌 ({availableFriend.Count}): [{string.Join(", ", availableFriend)}]");
+                Card.InitFriends(task.Friend);
+            }
+            else
+            {
+                Console.WriteLine("无可用的助战卡牌");
+                availableFriend = null;
+                Card.InitFriends();
+            }
+
             Console.WriteLine($"共计 {cardPool.Count} 张备选卡牌，正在计算卡组数量...");
             Stopwatch sw = new();
             sw.Start();
@@ -112,14 +134,14 @@ class Program
                     "log",
                     $"simulation_results_{MusicId}_{Tier}.json"
                 );
-            DeckGenerator deckgen = new DeckGenerator(cardPool, mustcards, centerChar, availableCenter, logPath);
+            DeckGenerator deckgen = new DeckGenerator(cardPool, mustcards, centerChar, availableCenter, availableFriend, logPath);
             sw.Stop();
             Console.WriteLine($"  卡组数量: {deckgen.TotalDecks}");
             Console.WriteLine($"  计算用时: {sw.ElapsedTicks / (decimal)Stopwatch.Frequency:F2}s");
 
             if (deckgen.TotalDecks == 0) continue;
 
-            Simulator sim2 = new(MusicId, Tier, task.MLv); 
+            Simulator sim2 = new(MusicId, Tier, task.MLv);
 
             Console.WriteLine($"[开始模拟]");
             Stopwatch sw2 = new();
@@ -138,7 +160,7 @@ class Program
             );
 
             sw2.Start();
-            Parallel.ForEach(Tqdm.Wrap(deckgen, total:deckgen.TotalDecks, printsPerSecond: 5), 
+            Parallel.ForEach(Tqdm.Wrap(deckgen, total: deckgen.TotalDecks, printsPerSecond: 5),
             () =>
             {
                 var deck = new Deck();
@@ -152,12 +174,13 @@ class Program
 
                 var card_id_list = deckTuple.deck;
                 var center_card = deckTuple.center;
+                var friend_card = deckTuple.friend;
 
-                context.Player.Deck.UpdateCards(card_id_list);
+                context.Player.Deck.UpdateCards(card_id_list, friend_card);
                 long newScore = -1;
                 try
                 {
-                    newScore = sim2.Run(context, (int)center_card);
+                    newScore = sim2.Run(context, center_card);
                 }
                 catch (Exception ex)
                 {
@@ -167,7 +190,7 @@ class Program
                         state.Stop();
                     }
                 }
-                buffer.AddResult(card_id_list, center_card, newScore);
+                buffer.AddResult(card_id_list, center_card, friend_card, newScore);
 
                 if (newScore > bestScore)
                 {
@@ -181,13 +204,13 @@ class Program
                             bestLog = context.Player.Deck.CardLog;
                             Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
                             Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
-                            Console.WriteLine($"  Center: {center_card}");
+                            Console.WriteLine($"  Center: {center_card}   Friend: {friend_card}");
                         }
                     }
                 }
                 return context;
             },
-            (finalContext) => {}
+            (finalContext) => { }
             );
             sw2.Stop();
             buffer.FlushFinal();

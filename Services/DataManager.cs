@@ -74,10 +74,10 @@ namespace DeckMiner.Services
             try
             {
                 string jsonString = File.ReadAllText(filePath);
-                
+
                 // 1. 获取我们想要反序列化的类型
-                var typeToDeserialize = typeof(TDictionary); 
-                
+                var typeToDeserialize = typeof(TDictionary);
+
                 // 2. 从上下文获取该类型的序列化信息 (TypeInfo)，这是通用的关键
                 var typeInfo = AppJsonSerializerContext.Default.GetTypeInfo(typeToDeserialize);
 
@@ -85,7 +85,7 @@ namespace DeckMiner.Services
                 {
                     throw new InvalidOperationException($"无法获取 {typeof(TDictionary).Name} 的 TypeInfo。请在 JsonContext.cs 中标记该类型。");
                 }
-                
+
                 // 3. 执行反序列化，并转换为 TDictionary 类型
                 var db = (TDictionary)JsonSerializer.Deserialize(jsonString, typeInfo);
 
@@ -101,7 +101,7 @@ namespace DeckMiner.Services
         // ----------------------------------------------------
         // 💻 针对特定数据库的公共访问方法
         // ----------------------------------------------------
-        
+
         public SkillDbDictionaryType GetSkillDatabase()
         {
             if (_skillDb == null)

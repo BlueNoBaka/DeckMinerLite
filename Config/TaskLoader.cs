@@ -18,6 +18,7 @@ namespace DeckMiner.Config
         public List<int> ExcludeCards { get; set; } = new();
         public List<int> SecondaryCenter { get; set; } = new();
         public List<int> MustSkills { get; set; } = new();
+        public List<int> Friend { get; set; } = new();
     }
 
     public class RequiredCards

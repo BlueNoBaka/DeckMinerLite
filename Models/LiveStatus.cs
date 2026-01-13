@@ -51,7 +51,7 @@ namespace DeckMiner.Models
             ApGainRate = 1.0;
             VoltageGainRate = 1.0;
             // MasterLv = 50;  // 模拟过程中不变
-            
+
             // Mental.SetHp(100);  // 每次模拟都会重新 HpCalc
             Voltage.SetPoints(0);
 
@@ -217,6 +217,6 @@ namespace DeckMiner.Models
         Good = 2,
         Great = 3,
         Perfect = 4,
-        PerfectPlus =5
+        PerfectPlus = 5
     }
 }

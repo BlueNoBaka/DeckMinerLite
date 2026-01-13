@@ -33,7 +33,7 @@ namespace DeckMiner.Data
     AllowTrailingCommas = true,                               // 允许数组或对象末尾有多余的逗号
     PropertyNameCaseInsensitive = true                        // 忽略属性名大小写（如 JSON 里的 musicid 对应 MusicId）
     )]
-    
+
     // 3. 继承自 JsonSerializerContext，并使用 partial 关键字
     public partial class AppJsonSerializerContext : JsonSerializerContext
     {

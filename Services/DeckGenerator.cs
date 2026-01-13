@@ -165,12 +165,13 @@ namespace DeckMiner.Services
     }
 
     // =================== 主生成器 ===================
-    public class DeckGenerator : IEnumerable<(int[] deck, int? center)>
+    public class DeckGenerator : IEnumerable<(int[] deck, int center, int friend)>
     {
         List<int> cardpool;
         List<List<int>> mustcards;
         int? centerChar;
         HashSet<int> centerCard;
+        HashSet<int> friendCard;
         Dictionary<int, List<int>> charCards = new();
         HashSet<string> simulated = new();
 
@@ -181,22 +182,24 @@ namespace DeckMiner.Services
             List<List<int>> mustcards,
             int? center_char = null,
             HashSet<int> center_card = null,
+            HashSet<int> friend_card = null,
             string logPath = null)
         {
             this.cardpool = cardpool;
             this.mustcards = mustcards;
             this.centerChar = center_char;
             this.centerCard = center_card;
+            this.friendCard = friend_card != null ? friend_card : new HashSet<int> { 0 };
 
             try
-            {                
+            {
                 var simulatedResult = SimulationBuffer.LoadResultsFromJson(logPath);
                 foreach (var result in simulatedResult)
                 {
                     simulated.Add(SimulationBuffer.MakeKey(result.DeckCardIds));
                 }
             }
-            catch (FileNotFoundException){}
+            catch (FileNotFoundException) { }
             TagGenerator.BuildDBTag();
 
             foreach (int cid in cardpool)
@@ -218,7 +221,7 @@ namespace DeckMiner.Services
         }
 
         // 迭代生成所有卡组
-        public IEnumerator<(int[] deck, int? center)> GetEnumerator()
+        public IEnumerator<(int[] deck, int center, int friend)> GetEnumerator()
         {
             var allChars = new List<int>(charCards.Keys);
             if (allChars.Count < 3) yield break;
@@ -252,8 +255,8 @@ namespace DeckMiner.Services
         }
 
         // ================== 分发角色 → 枚举卡组 ==================
-        
-        IEnumerable<(int[], int?)> GenerateByDistribution(int[] distribution)
+
+        IEnumerable<(int[], int, int)> GenerateByDistribution(int[] distribution)
         {
             // char -> count
             var charCounts = new Dictionary<int, int>();
@@ -342,15 +345,10 @@ namespace DeckMiner.Services
                 foreach (var perm in PermutationsWithFixedEnds(deck, allowedFirst, allowedLast))
                 {
                     // yield for each allowed center
-                    if (centerCard != null)
-                    {
-                        foreach (var c in centers)
-                            yield return (perm, c);
-                    }
-                    else
-                    {
-                        yield return (perm, null);
-                    }
+                    foreach (var c in centers)
+                        foreach (var f in friendCard)
+                            // 偷懒: 未检查助战卡是否在原始卡组中
+                            yield return (perm, c, f);
                 }
             }
         }
@@ -548,7 +546,7 @@ namespace DeckMiner.Services
         {
             int count = 0;
 
-            foreach (var (deck, center) in GenerateByDistribution(distribution))
+            foreach (var _ in GenerateByDistribution(distribution))
                 count++;
 
             return count;

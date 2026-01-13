@@ -104,10 +104,10 @@ namespace DeckMiner.Data
             double hp = InterpolateValue(HP_CURVES[rarity], level);
             // 进化等级
             int evo = GetEvolution(rarity, level);
-            
+
             return (status, hp, evo);
         }
-        
+
         /// <summary>
         /// 获取卡牌在指定等级下的进化阶段。
         /// 对应 Python 的 _get_evolution

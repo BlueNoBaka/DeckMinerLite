@@ -107,7 +107,7 @@ namespace DeckMiner.Services
                 case CenterAttributeEffectType.MentalRateChange:
                     doubleChange = valueData / 10000.0;
                     multiplier = 1.0 + doubleChange;
-                    for (int i = 0; i < 6; i++)
+                    for (int i = 0; i < 7; i++)
                     {
                         var card = cards[i];
                         if (CheckMultiTarget(targetIds, card.CharactersId))
@@ -122,7 +122,7 @@ namespace DeckMiner.Services
                 case CenterAttributeEffectType.ConsumeAPChange:
                     intChange = valueData;
                     // 应用数值变化，遍历卡牌并检查目标
-                    for (int i = 0; i < 6; i++)
+                    for (int i = 0; i < 7; i++)
                     {
                         var card = cards[i];
                         if (CheckMultiTarget(targetIds, card.CharactersId))
@@ -428,7 +428,7 @@ namespace DeckMiner.Services
         public static void ApplyCenterSkillEffect(LiveStatus playerAttrs, CenterSkillEffectUnit effect)
         {
             var valueData = effect.Value;
-            
+
             switch (effect.Type)
             {
                 case CenterSkillEffectType.APChange:
