@@ -132,11 +132,7 @@ namespace DeckMiner.Services
             Player.BaseScoreCalc(Chart.AllNoteSize);
 
             var chartEvents = ChartEvent;
-            var extraEvents = Player.ExtraEvents;
-            extraEvents.Enqueue(
-                new RuntimeEvent(Player.Cooldown, LiveEventType.CDavailable),
-                Player.Cooldown
-            );
+            var nextCd = Player.Cooldown;
 
             int i_event = 0;
             Card cardNow = d.TopCard;
@@ -147,10 +143,7 @@ namespace DeckMiner.Services
                 double nextChartTime = chartEvents[i_event].Time;
 
                 // 获取下一个动态 Extra 事件的时间
-                double nextExtraTime = (extraEvents.Count > 0)
-                    ? extraEvents.Peek().Time // Peek() 获取优先级 (Time)
-                    : double.MaxValue;
-                if (nextChartTime <= nextExtraTime)
+                if (nextChartTime <= nextCd)
                 {
                     currentEvent = chartEvents[i_event];
                     i_event++;
@@ -174,7 +167,7 @@ namespace DeckMiner.Services
                             {
                                 Player.ComboAdd(NoteJudgement.PerfectPlus);
                                 if (Player.CDAvailable)
-                                    TryUseSkill(Player, d, ref cardNow, currentEvent.Time, extraEvents);
+                                    TryUseSkill(Player, d, ref cardNow, currentEvent.Time, ref nextCd);
                             }
                             break;
                         case LiveEventType.LiveStart:
@@ -222,16 +215,10 @@ namespace DeckMiner.Services
                 }
                 else
                 {
-                    currentEvent = extraEvents.Dequeue();
-                    if (currentEvent.Type == LiveEventType.CDavailable)
-                    {
-                        Player.CDAvailable = true;
-                        TryUseSkill(Player, d, ref cardNow, currentEvent.Time, extraEvents);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"未处理的事件: {currentEvent.Time}, {currentEvent.Type}");
-                    }
+                    Player.CDAvailable = true;
+                    TryUseSkill(Player, d, ref cardNow, nextCd, ref nextCd);
+                    if (Player.CDAvailable)
+                        nextCd = 600.0;
                 }
             }
 
@@ -243,7 +230,7 @@ namespace DeckMiner.Services
                 Deck d,
                 ref Card cardNow,
                 double currentTime,
-                PriorityQueue<RuntimeEvent, double> extraEvents
+                ref double nextCd
                 )
             {
                 if (cardNow != null && p.Ap >= cardNow.Cost)
@@ -252,11 +239,7 @@ namespace DeckMiner.Services
                     var skill = d.TopSkill();
                     SkillResolver.UseCardSkill(p, skill, cardNow);
                     p.CDAvailable = false;
-                    var nextCd = currentTime + p.Cooldown;
-                    extraEvents.Enqueue(
-                        new RuntimeEvent(nextCd, LiveEventType.CDavailable),
-                        nextCd
-                        );
+                    nextCd = currentTime + p.Cooldown;
                     cardNow = d.TopCard;
                 }
             }
