@@ -57,7 +57,8 @@ class Program
         // 步骤 2: 读取模拟任务
         // ------------------------------------------------------------------
         // Simulator SimTest = new("405129", "02");
-        // Deck d = new([1041513, 1033531, 1021701, 1022702, 1023702, 1031533], 1031519);
+        // Card.InitFriends();
+        // Deck d = new([1033531, 1011501, 1041513, 1021701, 1022702, 1031533]);
         // LiveStatus p = new(50);
         // p.SetDeck(d);
         // var c = new SimulatorContext(p);
@@ -147,7 +148,8 @@ class Program
             Stopwatch sw2 = new();
             long bestScore = -1;
             int[] bestDeck = new int[6];
-            int? bestCenter = 0;
+            int bestCenter = 0;
+            int bestFriend = 0;
             List<string> bestLog = new();
             Exception fatalError = null;
             string errorContextInfo = string.Empty;
@@ -186,7 +188,7 @@ class Program
                 {
                     if (Interlocked.CompareExchange(ref fatalError, ex, null) == null)
                     {
-                        errorContextInfo = $"卡组: ({string.Join(", ", card_id_list)})\nC位:   {center_card}";
+                        errorContextInfo = $"卡组: ({string.Join(", ", card_id_list)})\nC位:   {center_card}   助战:   {friend_card}";
                         state.Stop();
                     }
                 }
@@ -201,9 +203,10 @@ class Program
                             bestScore = newScore;
                             bestDeck = card_id_list;
                             bestCenter = center_card;
+                            bestFriend = friend_card;
                             bestLog = context.Player.Deck.CardLog;
                             Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
-                            Console.WriteLine($"  Cards: ({string.Join(", ", card_id_list)})");
+                            Console.WriteLine($"  Cards: ({string.Join(", ", bestDeck)})");
                             Console.WriteLine($"  Center: {center_card}   Friend: {friend_card}");
                         }
                     }
@@ -234,7 +237,7 @@ class Program
             Console.WriteLine($"歌曲: {musicDb[MusicId].Title} ({Tier})");
             Console.WriteLine($"最高分: {bestScore:N0}");
             Console.WriteLine($"卡组: ({string.Join(", ", bestDeck)})");
-            Console.WriteLine($"C位:   {bestCenter}");
+            Console.WriteLine($"C位:   {bestCenter}   助战: {bestFriend}");
             var bestLogStr = string.Join(
                 Environment.NewLine,
                 bestLog
