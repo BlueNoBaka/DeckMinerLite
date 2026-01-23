@@ -92,11 +92,11 @@ namespace DeckMiner.Services
         }
 
 
-        public long Run(SimulatorContext context, int centerCardId)
+        public long Run(LiveStatus player, int centerCardId)
         {
             Card CenterCard = null;
-            var Player = context.Player;
-            var d = context.Player.Deck;
+            var Player = player;
+            var d = Player.Deck;
             Player.Reset();
 
             double afkMental = 0.0;

@@ -56,14 +56,19 @@ class Program
         // ------------------------------------------------------------------
         // 步骤 2: 读取模拟任务
         // ------------------------------------------------------------------
-        // Simulator SimTest = new("405129", "02");
+        // Simulator SimTest = new("405206", "02");
         // Card.InitFriends();
-        // Deck d = new([1033531, 1011501, 1041513, 1021701, 1022702, 1031533]);
+        // Deck d = new([1021702,
+        // 1033533,
+        // 1033530,
+        // 1022702,
+        // 1023702,
+        // 1051901], 0);
         // LiveStatus p = new(50);
         // p.SetDeck(d);
         // var c = new SimulatorContext(p);
 
-        // SimTest.Run(c, 1031533);
+        // SimTest.Run(c, 1051901);
         // Console.WriteLine(p);
         // return;
         var taskConfig = TaskLoader.Task;
@@ -165,24 +170,24 @@ class Program
             Parallel.ForEach(Tqdm.Wrap(deckgen, total: deckgen.TotalDecks, printsPerSecond: 5),
             () =>
             {
-                var deck = new Deck();
-                var player = new LiveStatus(task.MLv);
-                player.SetDeck(deck);
-                return new SimulatorContext(player);
+                return 0;
             },
             (deckTuple, state, context) =>
             {
                 if (state.ShouldExitCurrentIteration || fatalError != null) return context;
 
-                var card_id_list = deckTuple.deck;
+                var card_id_list = (int[])deckTuple.deck.Clone();
                 var center_card = deckTuple.center;
                 var friend_card = deckTuple.friend;
 
-                context.Player.Deck.UpdateCards(card_id_list, friend_card);
+                var deck = new Deck(card_id_list, friend_card);
+                var player = new LiveStatus(task.MLv);
+                player.SetDeck(deck);
+
                 long newScore = -1;
                 try
                 {
-                    newScore = sim2.Run(context, center_card);
+                    newScore = sim2.Run(player, center_card);
                 }
                 catch (Exception ex)
                 {
@@ -204,7 +209,7 @@ class Program
                             bestDeck = card_id_list;
                             bestCenter = center_card;
                             bestFriend = friend_card;
-                            bestLog = context.Player.Deck.CardLog;
+                            bestLog = new List<string>(player.Deck.CardLog);
                             Console.WriteLine($"NEW HI-SCORE! Score: {bestScore:N0}".PadRight(Console.BufferWidth));
                             Console.WriteLine($"  Cards: ({string.Join(", ", bestDeck)})");
                             Console.WriteLine($"  Center: {center_card}   Friend: {friend_card}");
