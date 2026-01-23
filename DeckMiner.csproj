@@ -16,5 +16,7 @@
     <Content Include="GameData\**" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="cardConfig.jsonc" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="task.jsonc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="CardData.csv" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Musics.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
