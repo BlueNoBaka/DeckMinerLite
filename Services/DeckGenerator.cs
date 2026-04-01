@@ -341,13 +341,19 @@ namespace DeckMiner.Services
                 if (allowedFirst.Count == 0 || allowedLast.Count == 0)
                     continue;
 
+                var availableFriends = new List<int>();
+                foreach (var f in friendCard)
+                    if (!deck.Contains(f)) 
+                        availableFriends.Add(f);
+
+                if (availableFriends.Count == 0) continue;
+
                 // generate permutations with fixed first and last to reduce search space
                 foreach (var perm in PermutationsWithFixedEnds(deck, allowedFirst, allowedLast))
                 {
                     // yield for each allowed center
                     foreach (var c in centers)
-                        foreach (var f in friendCard)
-                            // 偷懒: 未检查助战卡是否在原始卡组中
+                        foreach (var f in availableFriends)
                             yield return (perm, c, f);
                 }
             }
@@ -542,9 +548,9 @@ namespace DeckMiner.Services
             return total;
         }
 
-        int CountByDistribution(int[] distribution)
+        long CountByDistribution(int[] distribution)
         {
-            int count = 0;
+            long count = 0;
 
             foreach (var _ in GenerateByDistribution(distribution))
                 count++;
